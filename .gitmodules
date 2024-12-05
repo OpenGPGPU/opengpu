@@ -1,0 +1,9 @@
+[submodule "depends/arithmetic"]
+	path = depends/arithmetic
+	url = https://github.com/sequencer/arithmetic
+[submodule "depends/hardfloat"]
+	path = depends/hardfloat
+	url = https://github.com/ucb-bar/berkeley-hardfloat
+[submodule "depends/chisel-interface"]
+	path = depends/chisel-interface
+	url = https://github.com/chipsalliance/chisel-interface
