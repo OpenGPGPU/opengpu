@@ -7,3 +7,6 @@
 [submodule "depends/chisel-interface"]
 	path = depends/chisel-interface
 	url = https://github.com/chipsalliance/chisel-interface
+[submodule "depends/chisel"]
+	path = depends/chisel
+	url = https://github.com/chipsalliance/chisel
