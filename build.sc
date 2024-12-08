@@ -13,6 +13,7 @@ import $file.depends.chisel.build
 import $file.depends.arithmetic.common
 import $file.depends.`chisel-interface`.common
 import $file.depends.`hardfloat`.common
+import $file.depends.`rvdecoderdb`.common
 import $file.common
 
 object v {
@@ -72,6 +73,15 @@ trait Hardfloat extends millbuild.depends.`hardfloat`.common.HardfloatModule {
   def chiselPluginIvy = None
 }
 
+object rvdecoderdb extends RVDecoderDB
+
+trait RVDecoderDB extends millbuild.depends.rvdecoderdb.common.RVDecoderDBJVMModule with ScalaModule {
+  def scalaVersion            = T(v.scala)
+  def osLibIvy                = v.oslib
+  def upickleIvy              = v.upickle
+  override def millSourcePath = os.pwd / "depends" / "rvdecoderdb" / "rvdecoderdb"
+}
+
 object dwbb extends DWBB
 
 trait DWBB extends millbuild.depends.`chisel-interface`.common.DWBBModule {
@@ -95,6 +105,24 @@ trait Stdlib extends millbuild.common.StdlibModule with ScalafmtModule {
   def mainargsIvy = v.mainargs
 
   def dwbbModule: ScalaModule = dwbb
+
+  def chiselModule    = Some(chisel)
+  def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
+  def chiselIvy       = None
+  def chiselPluginIvy = None
+}
+
+object t1 extends T1
+
+trait T1 extends millbuild.common.T1Module with ScalafmtModule {
+  def scalaVersion = T(v.scala)
+
+  def arithmeticModule  = arithmetic
+  def axi4Module        = axi4
+  def hardfloatModule   = hardfloat
+  def rvdecoderdbModule = rvdecoderdb
+  def stdlibModule      = stdlib
+  def riscvOpcodesPath  = T.input(PathRef(os.pwd / "depends" / "riscv-opcodes"))
 
   def chiselModule    = Some(chisel)
   def chiselPluginJar = T(Some(chisel.pluginModule.jar()))

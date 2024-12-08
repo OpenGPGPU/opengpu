@@ -10,3 +10,12 @@
 [submodule "depends/chisel"]
 	path = depends/chisel
 	url = https://github.com/chipsalliance/chisel
+[submodule "depends/t1"]
+	path = depends/t1
+	url = https://github.com/chipsalliance/t1
+[submodule "depends/rvdecoderdb"]
+	path = depends/rvdecoderdb
+	url = https://github.com/sequencer/rvdecoderdb
+[submodule "depends/riscv-opcodes"]
+	path = depends/riscv-opcodes
+	url = https://github.com/riscv/riscv-opcodes
