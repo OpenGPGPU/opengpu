@@ -100,6 +100,7 @@ trait DWBB extends millbuild.depends.`chisel-interface`.common.DWBBModule {
 object stdlib extends Stdlib
 
 trait Stdlib extends millbuild.common.StdlibModule with ScalafmtModule {
+  override def millSourcePath = os.pwd / "depends" / "t1" / "stdlib"
   def scalaVersion = v.scala
 
   def mainargsIvy = v.mainargs
@@ -115,6 +116,7 @@ trait Stdlib extends millbuild.common.StdlibModule with ScalafmtModule {
 object t1 extends T1
 
 trait T1 extends millbuild.common.T1Module with ScalafmtModule {
+  override def millSourcePath = os.pwd / "depends" / "t1" / "t1"
   def scalaVersion = T(v.scala)
 
   def arithmeticModule  = arithmetic
@@ -122,6 +124,26 @@ trait T1 extends millbuild.common.T1Module with ScalafmtModule {
   def hardfloatModule   = hardfloat
   def rvdecoderdbModule = rvdecoderdb
   def stdlibModule      = stdlib
+  def riscvOpcodesPath  = T.input(PathRef(os.pwd / "depends" / "riscv-opcodes"))
+
+  def chiselModule    = Some(chisel)
+  def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
+  def chiselIvy       = None
+  def chiselPluginIvy = None
+}
+
+object ogpu extends OGPU
+
+trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule {
+  override def millSourcePath = os.pwd
+  def scalaVersion            = v.scala
+
+  def arithmeticModule  = arithmetic
+  def axi4Module        = axi4
+  def hardfloatModule   = hardfloat
+  def rvdecoderdbModule = rvdecoderdb
+  def stdlibModule      = stdlib
+  def T1Module          = t1
   def riscvOpcodesPath  = T.input(PathRef(os.pwd / "depends" / "riscv-opcodes"))
 
   def chiselModule    = Some(chisel)

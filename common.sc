@@ -70,11 +70,19 @@ trait HasRVDecoderDB extends ScalaModule {
 }
 
 
-// Local definitions
 trait T1Module extends ScalaModule with HasChisel with HasRVDecoderDB {
   def arithmeticModule: ScalaModule
   def hardfloatModule:  ScalaModule
   def axi4Module:       ScalaModule
   def stdlibModule:     ScalaModule
   def moduleDeps = super.moduleDeps ++ Seq(arithmeticModule, hardfloatModule, axi4Module, stdlibModule)
+}
+
+trait OGPUModule extends ScalaModule with HasChisel with HasRVDecoderDB {
+  def arithmeticModule: ScalaModule
+  def hardfloatModule:  ScalaModule
+  def axi4Module:       ScalaModule
+  def stdlibModule:     ScalaModule
+  def T1Module:         ScalaModule
+  def moduleDeps = super.moduleDeps ++ Seq(arithmeticModule, hardfloatModule, axi4Module, stdlibModule, T1Module)
 }
