@@ -20,9 +20,7 @@ jobs:
   riscv-test:
     name: riscv-tests
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        config: [DefaultConfig, DefaultBufferlessConfig, DefaultRV32Config, TinyConfig, DefaultFP16Config]
+
     steps:
       - uses: actions/checkout@v2
         with:
@@ -37,5 +35,5 @@ jobs:
         uses: coursier/cache-action@v5
 
       - name: run riscv-tests
-        run: |
+        run:
           make resolve
