@@ -19,3 +19,12 @@
 [submodule "depends/riscv-opcodes"]
 	path = depends/riscv-opcodes
 	url = https://github.com/riscv/riscv-opcodes
+[submodule "depends/rocket-chip"]
+	path = depends/rocket-chip
+	url = https://github.com/chipsalliance/rocket-chip.git
+[submodule "depends/diplomacy"]
+	path = depends/diplomacy
+	url = https://github.com/chipsalliance/diplomacy.git
+[submodule "depends/cde"]
+	path = depends/cde
+	url = https://github.com/chipsalliance/cde.git
