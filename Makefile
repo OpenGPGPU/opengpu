@@ -7,7 +7,9 @@ resolve: init format
 format:
 	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.reformat
 
-run:
+run: init format
 	nix --experimental-features 'nix-command flakes' develop -c	mill -i ogpu.runMain  ogpu.rtl.ALURTL
 
+clean:
+	nix --experimental-features 'nix-command flakes' develop -c	mill -i clean
 .phony: test

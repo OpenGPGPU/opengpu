@@ -14,15 +14,20 @@ import $file.depends.arithmetic.common
 import $file.depends.`chisel-interface`.common
 import $file.depends.`hardfloat`.common
 import $file.depends.`rvdecoderdb`.common
+import $file.depends.`rocket-chip`.common
+import $file.depends.`cde`.common
+import $file.depends.`diplomacy`.common
 import $file.common
 
 object v {
   val scala    = "2.13.15"
   val mainargs = ivy"com.lihaoyi::mainargs:0.5.0"
+  val sourcecode = ivy"com.lihaoyi::sourcecode:0.3.1"
   val oslib    = ivy"com.lihaoyi::os-lib:0.9.1"
   val upickle  = ivy"com.lihaoyi::upickle:3.3.1"
   val spire    = ivy"org.typelevel::spire:latest.integration"
   val evilplot = ivy"io.github.cibotech::evilplot:latest.integration"
+  val scalaReflect = ivy"org.scala-lang:scala-reflect:${scala}"
 }
 
 object chisel extends Chisel
@@ -30,6 +35,17 @@ object chisel extends Chisel
 trait Chisel extends millbuild.depends.chisel.build.Chisel {
   def crossValue              = v.scala
   override def millSourcePath = os.pwd / "depends" / "chisel"
+}
+
+object macros extends Macros
+
+trait Macros
+  extends millbuild.depends.`rocket-chip`.common.MacrosModule
+    with ScalaModule {
+
+  def scalaVersion: T[String] = T(v.scala)
+
+  def scalaReflectIvy = v.scalaReflect
 }
 
 object arithmetic extends Arithmetic
@@ -132,6 +148,65 @@ trait T1 extends millbuild.common.T1Module with ScalafmtModule {
   def chiselPluginIvy = None
 }
 
+object cde extends CDE
+
+trait CDE
+  extends millbuild.depends.cde.common.CDEModule  with ScalaModule {
+  override def millSourcePath = os.pwd / "depends" / "cde" / "cde"
+
+  def scalaVersion: T[String] = T(v.scala)
+
+}
+
+object diplomacy extends Diplomacy
+
+trait Diplomacy
+    extends millbuild.depends.diplomacy.common.DiplomacyModule {
+
+  override def scalaVersion: T[String] = T(v.scala)
+
+  override def millSourcePath = os.pwd / "depends" / "diplomacy" / "diplomacy"
+  def sourcecodeIvy = v.sourcecode
+
+
+  def chiselModule    = Some(chisel)
+  def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
+  def chiselIvy       = None
+  def chiselPluginIvy = None
+
+  def cdeModule = cde
+}
+
+object rocketchip extends RocketChip
+
+trait RocketChip
+  extends millbuild.depends.`rocket-chip`.common.RocketChipModule
+    with SbtModule {
+  def scalaVersion: T[String] = T(v.scala)
+  def sourcecodeIvy = v.sourcecode
+  def mainargsIvy = v.mainargs
+
+  override def millSourcePath = os.pwd / "depends" / "rocket-chip"
+
+  def chiselModule    = Some(chisel)
+  def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
+  def chiselIvy       = None
+  def chiselPluginIvy = None
+
+  def hardfloatModule = hardfloat
+
+  def cdeModule = cde
+
+  def macrosModule = macros
+
+  def diplomacyModule = diplomacy
+
+  def diplomacyIvy = None
+
+
+  def json4sJacksonIvy = ivy"org.json4s::json4s-jackson:4.0.5"
+}
+
 object ogpu extends OGPU
 
 trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule {
@@ -144,6 +219,10 @@ trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule {
   def rvdecoderdbModule = rvdecoderdb
   def stdlibModule      = stdlib
   def T1Module          = t1
+  def cdeModule         = cde
+  def diplomacyModule   = diplomacy
+  def rocketchipModule  = rocketchip
+
   def riscvOpcodesPath  = T.input(PathRef(os.pwd / "depends" / "riscv-opcodes"))
 
   def chiselModule    = Some(chisel)
