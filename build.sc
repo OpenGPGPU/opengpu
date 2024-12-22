@@ -129,6 +129,26 @@ trait Stdlib extends millbuild.common.StdlibModule with ScalafmtModule {
   def chiselPluginIvy = None
 }
 
+object rocketv extends Rocketv
+
+trait Rocketv extends millbuild.common.RocketvModule with ScalafmtModule {
+  override def millSourcePath = os.pwd / "depends" / "t1" / "rocketv"
+  def scalaVersion = T(v.scala)
+
+  def arithmeticModule  = arithmetic
+  def axi4Module        = axi4
+  def hardfloatModule   = hardfloat
+  def stdlibModule      = stdlib
+  def rvdecoderdbModule = rvdecoderdb
+  def riscvOpcodesPath  = T.input(PathRef(os.pwd / "depends" / "riscv-opcodes"))
+
+  def chiselModule    = Some(chisel)
+  def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
+  def chiselIvy       = None
+  def chiselPluginIvy = None
+}
+
+
 object t1 extends T1
 
 trait T1 extends millbuild.common.T1Module with ScalafmtModule {
@@ -219,6 +239,7 @@ trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule {
   def rvdecoderdbModule = rvdecoderdb
   def stdlibModule      = stdlib
   def T1Module          = t1
+  def RocketvModule     = rocketv
   def cdeModule         = cde
   def diplomacyModule   = diplomacy
   def rocketchipModule  = rocketchip

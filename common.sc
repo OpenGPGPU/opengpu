@@ -69,6 +69,13 @@ trait HasRVDecoderDB extends ScalaModule {
   override def resources: T[Seq[PathRef]] = super.resources() ++ Some(riscvOpcodesTar())
 }
 
+trait RocketvModule extends ScalaModule with HasChisel with HasRVDecoderDB {
+  def arithmeticModule: ScalaModule
+  def hardfloatModule:  ScalaModule
+  def axi4Module:       ScalaModule
+  def stdlibModule:     ScalaModule
+  def moduleDeps = super.moduleDeps ++ Seq(arithmeticModule, hardfloatModule, axi4Module, stdlibModule)
+}
 
 trait T1Module extends ScalaModule with HasChisel with HasRVDecoderDB {
   def arithmeticModule: ScalaModule
@@ -84,9 +91,10 @@ trait OGPUModule extends ScalaModule with HasChisel with HasRVDecoderDB {
   def axi4Module:       ScalaModule
   def stdlibModule:     ScalaModule
   def T1Module:         ScalaModule
+  def RocketvModule:    ScalaModule
   def cdeModule:        ScalaModule
   def diplomacyModule:        ScalaModule
   def rocketchipModule:        ScalaModule
 
-  def moduleDeps = super.moduleDeps ++ Seq(arithmeticModule, hardfloatModule, axi4Module, stdlibModule, T1Module, cdeModule, diplomacyModule, rocketchipModule)
+  def moduleDeps = super.moduleDeps ++ Seq(arithmeticModule, hardfloatModule, axi4Module, stdlibModule, T1Module, cdeModule, diplomacyModule, rocketchipModule, RocketvModule)
 }
