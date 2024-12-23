@@ -1,4 +1,4 @@
 # OPENGPU
 
-The goal of this project is to develop a low-power mobile GPU.
+The goal of this project is to develop a simple GPU.
 
