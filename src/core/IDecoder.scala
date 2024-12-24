@@ -11,7 +11,7 @@ import chisel3.util.BitPat
 import chisel3.util.experimental.decode.{BoolDecodeField, DecodeField, DecodePattern, DecodeTable}
 import org.chipsalliance.rvdecoderdb.{Encoding, Instruction, InstructionSet}
 
-import org.chipsalliance.rocketv.{DecoderParameter, FPUHelper, RocketDecodePattern, UOP, UOPDecodeField}
+import org.chipsalliance.rocketv.{FPUHelper, RocketDecodePattern, UOP, UOPDecodeField}
 
 object CustomInstructions {
   private def ogpu(name: String, encoding: Encoding) =
@@ -115,7 +115,7 @@ case class OGPUDecoderParameter(
     fwflags
   )
 
-  val table: DecodeTable[RocketDecodePattern] = new DecodeTable[RocketDecodePattern](
+  val coreTable: DecodeTable[RocketDecodePattern] = new DecodeTable[RocketDecodePattern](
     instructionDecodePatterns,
     instructionDecodeFields
   )
@@ -124,6 +124,11 @@ case class OGPUDecoderParameter(
     instructionDecodePatterns,
     FPUDecodeFields
   )
+
+  // val ogpuTable: DecodeTable[RocketDecodePattern= new DecodeTable[RocketDecodePattern](
+  //   instructionDecodePatterns,
+  //   OGPUDecodeFields
+  // )
 
   object isLegal extends BoolDecodeField[RocketDecodePattern] {
     override def name: String = "legal"
@@ -870,4 +875,29 @@ case class OGPUDecoderParameter(
       case _ => n
     }
   }
+}
+
+class CoreDecoderInterface(parameter: OGPUDecoderParameter) extends Bundle {
+  val instruction = Input(UInt(32.W))
+  val output = Output(parameter.coreTable.bundle)
+}
+
+class FPUDecoderInterface(parameter: OGPUDecoderParameter) extends Bundle {
+  val instruction = Input(UInt(32.W))
+  val output = Output(parameter.floatTable.bundle)
+}
+
+@instantiable
+class Decoder(val parameter: OGPUDecoderParameter)
+  extends FixedIORawModule(new CoreDecoderInterface(parameter))
+    with SerializableModule[OGPUDecoderParameter]
+    with Public {
+  io.output := parameter.coreTable.decode(io.instruction)
+}
+
+@instantiable
+class FPUDecoder(val parameter: OGPUDecoderParameter)
+  extends FixedIORawModule(new FPUDecoderInterface(parameter))
+    with SerializableModule[OGPUDecoderParameter] {
+  io.output := parameter.floatTable.decode(io.instruction)
 }
