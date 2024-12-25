@@ -87,6 +87,8 @@ case class OGPUDecoderParameter(
     isBranch,
     isJal,
     isJalr,
+    isJoin,
+    isCease,
     rxs2,
     rxs1,
     selAlu2,
@@ -183,7 +185,7 @@ case class OGPUDecoderParameter(
 
     override def genTable(op: RocketDecodePattern): BitPat = op.instruction.name match {
       // format: off
-      case i if Seq("bne", "beq", "blt", "bltu", "bge", "bgeu").contains(i) => y
+      case i if Seq("bne", "beq", "blt", "bltu", "bge", "bgeu", "vbne", "vbeq", "vblt", "vbltu", "vbge", "vbgeu").contains(i) => y
       case _ => n
       // format: on
     }
@@ -206,6 +208,28 @@ case class OGPUDecoderParameter(
     override def genTable(op: RocketDecodePattern): BitPat = op.instruction.name match {
       // format: off
       case i if Seq("jalr").contains(i) => y
+      case _ => n
+      // format: on
+    }
+  }
+
+  object isJoin extends BoolDecodeField[RocketDecodePattern] {
+    override def name: String = "join"
+
+    override def genTable(op: RocketDecodePattern): BitPat = op.instruction.name match {
+      // format: off
+      case i if Seq("join").contains(i) => y
+      case _ => n
+      // format: on
+    }
+  }
+
+  object isCease extends BoolDecodeField[RocketDecodePattern] {
+    override def name: String = "cease"
+
+    override def genTable(op: RocketDecodePattern): BitPat = op.instruction.name match {
+      // format: off
+      case i if Seq("cease").contains(i) => y
       case _ => n
       // format: on
     }
