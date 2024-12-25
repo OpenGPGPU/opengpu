@@ -18,6 +18,18 @@ object CustomInstructions {
     Instruction(name, encoding, Seq(), Seq(InstructionSet("rv_ogpu")), None, false, true)
 
   val ogpuSet = Seq(
+    // vector branch insts, reuse ventus-gpgpu insts
+    ogpu("vbeq", Encoding.fromString("?????????????????000?????1011011")),
+    ogpu("vbne", Encoding.fromString("?????????????????001?????1011011")),
+    ogpu("vblt", Encoding.fromString("?????????????????100?????1011011")),
+    ogpu("vbge", Encoding.fromString("?????????????????101?????1011011")),
+    ogpu("vbltu", Encoding.fromString("?????????????????110?????1011011")),
+    ogpu("vbgeu", Encoding.fromString("?????????????????111?????1011011")),
+
+    // join
+    ogpu("join", Encoding.fromString("?????????????????010?????1011011")),
+
+    // warp ceases
     ogpu("cease", Encoding.fromString("00110000010100000000000001110011"))
   )
 }
@@ -217,7 +229,7 @@ case class OGPUDecoderParameter(
     override def genTable(op: RocketDecodePattern): BitPat = (op.instruction.name, op) match {
       // format: off
       case (i, _) if Seq("amomaxu.w", "amoand.w", "amoor.w", "amoxor.w", "amoswap.w", "lr.w", "amomax.w", "amoadd.w", "amomin.w", "amominu.w", "sc.w", "lr.d", "amomax.d", "amoswap.d", "amoxor.d", "amoand.d", "amomin.d", "amoor.d", "amoadd.d", "amomaxu.d", "amominu.d", "sc.d", "fld", "fcvt.d.wu", "fsd", "fcvt.d.w", "fcvt.d.lu", "fmv.d.x", "fcvt.d.l", "fcvt.s.wu", "fmv.w.x", "fsw", "fcvt.s.w", "flw", "fcvt.s.lu", "fcvt.s.l", "hsv.w", "hsv.b", "hfence.vvma", "hlv.hu", "hlvx.hu", "hlv.b", "hlvx.wu", "hlv.w", "hsv.h", "hlv.h", "hlv.bu", "hfence.gvma", "hsv.d", "hlv.d", "hlv.wu", "or", "srl", "ori", "lhu", "sltu", "sra", "sb", "lw", "add", "xor", "beq", "andi", "bge", "sw", "blt", "bgeu", "sltiu", "lh", "bltu", "jalr", "bne", "lbu", "sub", "and", "xori", "slti", "slt", "addi", "lb", "sh", "sll", "srli", "srai", "slli", "ld", "addw", "sd", "sraiw", "lwu", "sllw", "sraw", "subw", "srlw", "addiw", "srliw", "slliw", "mulhsu", "rem", "div", "mul", "mulhu", "mulh", "remu", "divu", "remuw", "divw", "divuw", "mulw", "remw", "sfence.vma", "fsh", "flh", "fcvt.h.wu", "fcvt.h.w", "fmv.h.x", "fcvt.h.lu", "fcvt.h.l", "csrrc", "csrrs", "csrrw", "czero.nez", "czero.eqz", "cflush.d.l1", "cdiscard.d.l1").contains(i) => y
-      case (i, _) if Seq("ecall", "ebreak", "mret", "wfi", "sret", "dret", "cease", "nmret").contains(i) => dc
+      case (i, _) if Seq("ecall", "ebreak", "mret", "wfi", "sret", "dret", "nmret").contains(i) => dc
       case (_, p) if p.vectorReadRs1 => y
       case _                                                                                        => n
       // format: on
@@ -488,7 +500,7 @@ case class OGPUDecoderParameter(
       // format: off
       // TODO: default should be N?
       case i if Seq("amomaxu.w", "amoand.w", "amoor.w", "amoxor.w", "amoswap.w", "lr.w", "amomax.w", "amoadd.w", "amomin.w", "amominu.w", "sc.w", "lr.d", "amomax.d", "amoswap.d", "amoxor.d", "amoand.d", "amomin.d", "amoor.d", "amoadd.d", "amomaxu.d", "amominu.d", "sc.d", "fmin.d", "fsgnj.d", "fle.d", "fnmsub.d", "fadd.d", "fcvt.w.d", "fmsub.d", "fld", "fmul.d", "fcvt.wu.d", "feq.d", "fmax.d", "fcvt.d.wu", "fnmadd.d", "fcvt.d.s", "fcvt.s.d", "fsd", "fmadd.d", "fsgnjx.d", "flt.d", "fsgnjn.d", "fsub.d", "fsqrt.d", "fclass.d", "fcvt.d.w", "fdiv.d", "fcvt.d.lu", "fmv.x.d", "fmv.d.x", "fcvt.lu.d", "fcvt.l.d", "fcvt.d.l", "fcvt.d.h", "fcvt.h.d", "fnmsub.s", "fsgnjx.s", "fmsub.s", "fsgnjn.s", "fdiv.s", "fmin.s", "fsqrt.s", "fclass.s", "fcvt.wu.s", "fmax.s", "feq.s", "fcvt.s.wu", "fmv.w.x", "fle.s", "fmadd.s", "fsgnj.s", "fadd.s", "fsw", "flt.s", "fmv.x.w", "fnmadd.s", "fcvt.s.w", "flw", "fmul.s", "fcvt.w.s", "fsub.s", "fcvt.lu.s", "fcvt.s.lu", "fcvt.l.s", "fcvt.s.l", "or", "srl", "fence", "ori", "lhu", "sltu", "sra", "sb", "lw", "add", "xor", "beq", "andi", "bge", "sw", "blt", "bgeu", "sltiu", "lh", "bltu", "jalr", "lui", "bne", "lbu", "sub", "and", "auipc", "xori", "slti", "slt", "addi", "lb", "jal", "sh", "sll", "srli", "srai", "slli", "ld", "addw", "sd", "sraiw", "lwu", "sllw", "sraw", "subw", "srlw", "addiw", "srliw", "slliw", "mulhsu", "rem", "div", "mul", "mulhu", "mulh", "remu", "divu", "remuw", "divw", "divuw", "mulw", "remw", "feq.h", "fsgnjx.h", "fcvt.w.h", "fcvt.h.s", "fdiv.h", "fclass.h", "fsh", "fsgnj.h", "fmul.h", "fsub.h", "flh", "fcvt.wu.h", "fadd.h", "fmax.h", "fsgnjn.h", "fmv.x.h", "fcvt.s.h", "fcvt.h.wu", "fcvt.h.w", "fmsub.h", "fmin.h", "fsqrt.h", "flt.h", "fnmadd.h", "fmadd.h", "fnmsub.h", "fmv.h.x", "fle.h", "fcvt.l.h", "fcvt.lu.h", "fcvt.h.lu", "fcvt.h.l", "fence.i", "czero.nez", "czero.eqz").contains(i) => UOPCSR.n
-      case i if Seq("cdiscard.d.l1", "cease", "cflush.d.l1", "hsv.w", "hsv.b", "hfence.vvma", "hlv.hu", "hlvx.hu", "hlv.b", "hlvx.wu", "hlv.w", "hsv.h", "hlv.h", "hlv.bu", "hfence.gvma", "hsv.d", "hlv.d", "hlv.wu", "ebreak", "ecall", "sret", "sfence.vma", "dret", "wfi", "mret", "mnret").contains(i) => UOPCSR.i
+      case i if Seq("cdiscard.d.l1", "cflush.d.l1", "hsv.w", "hsv.b", "hfence.vvma", "hlv.hu", "hlvx.hu", "hlv.b", "hlvx.wu", "hlv.w", "hsv.h", "hlv.h", "hlv.bu", "hfence.gvma", "hsv.d", "hlv.d", "hlv.wu", "ebreak", "ecall", "sret", "sfence.vma", "dret", "wfi", "mret", "mnret").contains(i) => UOPCSR.i
       case i if Seq("csrrw", "csrrwi").contains(i) => UOPCSR.w
       case i if Seq("csrrs", "csrrsi").contains(i) => UOPCSR.s
       case i if Seq("csrrc", "csrrci").contains(i) => UOPCSR.c
