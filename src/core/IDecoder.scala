@@ -924,7 +924,7 @@ class FPUDecoderInterface(parameter: OGPUDecoderParameter) extends Bundle {
 }
 
 @instantiable
-class Decoder(val parameter: OGPUDecoderParameter)
+class CoreDecoder(val parameter: OGPUDecoderParameter)
   extends FixedIORawModule(new CoreDecoderInterface(parameter))
     with SerializableModule[OGPUDecoderParameter]
     with Public {

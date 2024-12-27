@@ -1,14 +1,14 @@
-package ogpu.scheduler
+package ogpu.dispatcher
 
 import chisel3._
 import chisel3.util._
 
-case class JobSchedParams() {
+case class DispatcherParams() {
   def buffer_num = 1
 }
 
-class JobScheduler(
-  params: JobSchedParams)
+class JobDispatcher(
+  params: DispatcherParams)
     extends Module {
 
   val io = IO(new Bundle {

@@ -1,4 +1,4 @@
-package ogpu.scheduler
+package ogpu.dispatcher
 
 import chisel3._
 
