@@ -16,6 +16,7 @@ import org.chipsalliance.rocketv.{
   BHTParameter,
   BTBParameter,
   FetchQueueParameter,
+  FrontendBundle,
   ICacheParameter,
   PMACheckerParameter,
   TLBParameter
@@ -211,36 +212,36 @@ case class FrontendParameter(
   )
 }
 
-// class FrontendInterface(parameter: FrontendParameter) extends Bundle {
-//   val clock         = Input(Clock())
-//   val reset         = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
-//   val resetVector   = Input(Const(UInt(parameter.resetVectorBits.W)))
-//   val nonDiplomatic = new FrontendBundle(
-//     parameter.vaddrBitsExtended,
-//     parameter.vaddrBits,
-//     parameter.asidBits,
-//     parameter.entries,
-//     parameter.bhtHistoryLength,
-//     parameter.bhtCounterLength,
-//     parameter.coreInstBits,
-//     parameter.nPMPs,
-//     parameter.vpnBits,
-//     parameter.paddrBits,
-//     parameter.pgLevels,
-//     parameter.xLen,
-//     parameter.maxPAddrBits,
-//     parameter.pgIdxBits,
-//     parameter.hasCorrectable,
-//     parameter.hasUncorrectable,
-//     parameter.fetchWidth
-//   )
-//   val instructionFetchAXI: AXI4ROIrrevocable         =
-//     org.chipsalliance.amba.axi4.bundle.AXI4ROIrrevocable(parameter.instructionFetchParameter)
-//   val itimAXI:             Option[AXI4RWIrrevocable] =
-//     parameter.itimParameter.map(p => Flipped(org.chipsalliance.amba.axi4.bundle.AXI4RWIrrevocable(p)))
-//   val om:                  Property[ClassType]       = Output(Property[AnyClassType]())
-// }
-//
+class FrontendInterface(parameter: FrontendParameter) extends Bundle {
+  val clock = Input(Clock())
+  val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val resetVector = Input(Const(UInt(parameter.resetVectorBits.W)))
+  val nonDiplomatic = new FrontendBundle(
+    parameter.vaddrBitsExtended,
+    parameter.vaddrBits,
+    parameter.asidBits,
+    parameter.entries,
+    parameter.bhtHistoryLength,
+    parameter.bhtCounterLength,
+    parameter.coreInstBits,
+    parameter.nPMPs,
+    parameter.vpnBits,
+    parameter.paddrBits,
+    parameter.pgLevels,
+    parameter.xLen,
+    parameter.maxPAddrBits,
+    parameter.pgIdxBits,
+    parameter.hasCorrectable,
+    parameter.hasUncorrectable,
+    parameter.fetchWidth
+  )
+  val instructionFetchAXI: AXI4ROIrrevocable =
+    org.chipsalliance.amba.axi4.bundle.AXI4ROIrrevocable(parameter.instructionFetchParameter)
+  val itimAXI: Option[AXI4RWIrrevocable] =
+    parameter.itimParameter.map(p => Flipped(org.chipsalliance.amba.axi4.bundle.AXI4RWIrrevocable(p)))
+  val om: Property[ClassType] = Output(Property[AnyClassType]())
+}
+
 // @instantiable
 // class FrontendOM extends Class {
 //   @public
