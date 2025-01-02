@@ -1,17 +1,29 @@
 package ogpu.core
 
 import chisel3._
+import chisel3.util.DecoupledIO
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
 case class WarpParameter(
   useAsyncReset: Boolean,
-  clockGate:     Boolean)
+  clockGate:     Boolean,
+  warpNum:       Int,
+  stackDepth:    Int,
+  xLen:          Int,
+  dimNum:        Int,
+  paddrBits:     Int,
+  pgLevels:      Int,
+  asidBits:      Int,
+  threadNum:     Int)
     extends SerializableModuleParameter
 
 class WarpInterface(parameter: WarpParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val warp_cmd = Flipped(
+    DecoupledIO(new CuTaskBundle(parameter.threadNum, parameter.warpNum, parameter.dimNum, parameter.xLen))
+  )
 }
 
 @instantiable
