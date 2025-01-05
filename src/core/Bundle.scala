@@ -11,6 +11,8 @@ class CuTaskBundle(
   dimWidth:  Int = 16)
     extends Bundle {
   val mask = Vec(threadNum, Bool())
-  val dim = Vec(dimNum, UInt(dimWidth.W))
   val pc = UInt(32.W)
+  val vgprs = Vec(dimNum, UInt(dimWidth.W))
+  val vgpr_num = UInt(2.W)
+  val sgprs = Vec(16, UInt(xLen.W))
 }

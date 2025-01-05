@@ -35,4 +35,8 @@ class WarpScheduler(val parameter: WarpParameter)
     with Public {
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
+
+  val warp_idle = RegInit(VecInit(Seq.fill(parameter.warpNum)(1.B)))
+  val warp_active = RegInit(VecInit(Seq.fill(parameter.warpNum)(0.B)))
+  val warp_pc = RegInit(VecInit(Seq.fill(parameter.warpNum)(0.U(parameter.paddrBits.W))))
 }
