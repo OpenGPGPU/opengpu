@@ -1,7 +1,7 @@
 package ogpu.core
 
 import chisel3._
-import chisel3.util.DecoupledIO
+import chisel3.util.{DecoupledIO, PriorityEncoder}
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
@@ -39,4 +39,12 @@ class WarpScheduler(val parameter: WarpParameter)
   val warp_idle = RegInit(VecInit(Seq.fill(parameter.warpNum)(1.B)))
   val warp_active = RegInit(VecInit(Seq.fill(parameter.warpNum)(0.B)))
   val warp_pc = RegInit(VecInit(Seq.fill(parameter.warpNum)(0.U(parameter.paddrBits.W))))
+  val warp_tmask = RegInit(VecInit(Seq.fill(parameter.warpNum)(VecInit(Seq.fill(parameter.threadNum)(0.B)))))
+
+  val pop_valid = RegInit(0.B)
+  val has_idle = warp_idle.asUInt.orR
+  val has_active = warp_active.asUInt.orR
+  val idle_id = PriorityEncoder(warp_idle)
+  val active_id = PriorityEncoder(warp_active)
+
 }
