@@ -48,6 +48,7 @@ case class OGPUParameter(
         }
       }
   }.toSeq.filter { insn =>
+    println(insn.instructionSet.name)
     insn.name match {
       case s if Seq("vsetivli", "vsetvli", "vsetvl").contains(s) => false
       case _                                                     => true

@@ -47,4 +47,8 @@ class WarpScheduler(val parameter: WarpParameter)
   val idle_id = PriorityEncoder(warp_idle)
   val active_id = PriorityEncoder(warp_active)
 
+  // val simt_stack = VecInit(Seq.fill(warpNum)(Module(new SIMTStack()).io))
+
+  val pop_diverge = Wire(Bool())
+  // val pop_data = Wire(new StackData())
 }
