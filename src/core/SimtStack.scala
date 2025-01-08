@@ -23,17 +23,24 @@ case class SimtStackParameter(
   useAsyncReset: Boolean,
   clockGate:     Boolean,
   threadNum:     Int,
-  paddrBits:     Int,
+  addrBits:      Int,
   stackDepth:    Int)
     extends SerializableModuleParameter {
-  def resetVectorBits: Int = paddrBits
+  def resetVectorBits: Int = addrBits
 }
 
 class SimtStackInterface(parameter: SimtStackParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val resetVector = Input(Const(UInt(parameter.resetVectorBits.W)))
-  val stack = new StackData(parameter.threadNum, parameter.paddrBits)
+  val diverge_in = Input(Bool())
+  val push = Input(Bool())
+  val pop = Input(Bool())
+  val diverge_out = Output(Bool())
+  val empty = Output(Bool())
+  val full = Output(Bool())
+  val stack_out = new StackData(parameter.threadNum, parameter.addrBits)
+  val stack_in = Flipped(new StackData(parameter.threadNum, parameter.addrBits))
 }
 
 @instantiable
@@ -47,40 +54,52 @@ class SimtStack(val parameter: SimtStackParameter)
   override protected def implicitReset: Reset = io.reset
 
   def threadNum = parameter.threadNum
-  def paddrBits = parameter.paddrBits
+  def addrBits = parameter.addrBits
   def stackDepth = parameter.stackDepth
 
   val stack_addr = RegInit(0.U(log2Ceil(stackDepth + 1).W))
   val stack_pop_addr = RegInit(0.U(log2Ceil(stackDepth + 1).W))
-  val out_diverge = RegInit(0.B)
-  val out_data = io.stack
+  val diverge_out = RegInit(0.B)
+  val stack_out = io.stack_out
   val diverge_status = RegInit(VecInit(Seq.fill(stackDepth)(false.B)))
-  val stack_rf = new RegFile(stackDepth, threadNum * 2 + paddrBits)
 
-  // stack_pop_addr := stack_addr - 1.U
-  // stack_sram.io.enable := io.push || io.pop
-  // stack_sram.io.write := io.push
-  // stack_sram.io.addr := Mux(io.push, stack_addr, stack_pop_addr)
-  // stack_sram.io.dataIn := io.in_data.asUInt
+  // maybe ecc is needed for sram
+  val stack_sram: SRAMInterface[Vec[UInt]] = SRAM(
+    size = stackDepth,
+    tpe = Vec(
+      1,
+      UInt((threadNum * 2 + addrBits).W)
+    ),
+    numReadPorts = 0,
+    numWritePorts = 0,
+    numReadwritePorts = 1
+  )
 
-  // when(io.push) {
-  //   stack_addr := stack_addr + 1.U
-  //   stack_pop_addr := stack_addr
-  // }.elsewhen(io.pop && ~diverge_status(stack_pop_addr)) {
-  //   stack_addr := stack_addr - 1.U
-  //   stack_pop_addr := stack_pop_addr - 1.U
-  // }
+  stack_pop_addr := stack_addr - 1.U
 
-  // when(io.push) {
-  //   diverge_status(stack_addr) := io.in_diverge
-  // }.elsewhen(io.pop) {
-  //   diverge_status(stack_pop_addr) := 0.B
-  //   out_diverge := diverge_status(stack_pop_addr)
-  // }
+  stack_sram.readwritePorts.foreach { ramPort =>
+    ramPort.enable := io.push || io.pop
+    ramPort.isWrite := io.push
+    ramPort.address := Mux(io.push, stack_addr, stack_pop_addr)
+    ramPort.writeData := io.stack_in.asUInt
+  }
+  when(io.push) {
+    stack_addr := stack_addr + 1.U
+    stack_pop_addr := stack_addr
+  }.elsewhen(io.pop && ~diverge_status(stack_pop_addr)) {
+    stack_addr := stack_addr - 1.U
+    stack_pop_addr := stack_pop_addr - 1.U
+  }
 
-  // io.empty := stack_addr === 0.U
-  // io.full := stack_addr === stackDepth.U
-  // io.out_diverge := out_diverge
-  // io.out_data := out_data
+  when(io.push) {
+    diverge_status(stack_addr) := io.diverge_in
+  }.elsewhen(io.pop) {
+    diverge_status(stack_pop_addr) := 0.B
+    diverge_out := diverge_status(stack_pop_addr)
+  }
+
+  io.empty := stack_addr === 0.U
+  io.full := stack_addr === stackDepth.U
+  io.diverge_out := diverge_out
 
 }
