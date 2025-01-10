@@ -21,7 +21,10 @@ class StackData(
   threadNum: Int,
   paddrBits: Int)
     extends Bundle {
+  // diverge mask
   val mask = Vec(threadNum, Bool())
+  // diverge pc
   val pc = UInt(paddrBits.W)
+  // original mask before diverge
   val orig_mask = Vec(threadNum, Bool())
 }

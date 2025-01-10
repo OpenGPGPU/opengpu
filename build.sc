@@ -2,12 +2,19 @@
 // SPDX-FileCopyrightText: 2022 Jiuyang Liu <liu@jiuyang.me>
 // SPDX-FileCopyrightText: 2024 DonaldDuck <vivazsj@gmail.com>
 
+// import mill._
+// import scalalib._
+// import scalalib.scalafmt._
+// import mill.scalalib.TestModule.ScalaTest
 import mill._
 import mill.scalalib._
-import mill.define.{Command, TaskModule}
 import mill.scalalib.publish._
 import mill.scalalib.scalafmt._
-import mill.scalalib.TestModule.Utest
+
+// import mill.scalalib._
+// import mill.define.{Command, TaskModule}
+// import mill.scalalib.publish._
+// import mill.scalalib.scalafmt._
 import mill.util.Jvm
 import coursier.maven.MavenRepository
 import $file.depends.chisel.build
@@ -230,7 +237,7 @@ trait RocketChip
 
 object ogpu extends OGPU
 
-trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule {
+trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule with SbtModule {
   override def millSourcePath = os.pwd
   def scalaVersion            = v.scala
 
@@ -251,4 +258,29 @@ trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule {
   def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
   def chiselIvy       = None
   def chiselPluginIvy = None
+
+  override def sources = T.sources {
+    super.sources() ++ Seq(PathRef(this.millSourcePath / "src"))
+  }
+  def lineCount = T {
+    this.sources().filter(ref => os.exists(ref.path)).flatMap(ref => os.walk(ref.path)).filter(os.isFile).flatMap(os.read.lines).size
+  }
+
+  def printLineCount() = T.command {
+    println(s"Lines of code(LOC): ${lineCount()} !!!")
+  }
+
+  object test extends SbtModuleTests
+    with TestModule.ScalaTest
+    with ScalafmtModule {
+
+    override def forkArgs = Seq("-Xmx8G", "-Xss256m")
+
+    override def sources = T.sources {
+      super.sources() ++ Seq(PathRef(this.millSourcePath / "test"))
+    }
+    override def ivyDeps = super.ivyDeps() ++ Agg(
+      ivy"org.scalatest::scalatest:3.2.17"
+    )
+  }
 }

@@ -36,4 +36,4 @@ jobs:
 
       - name: run riscv-tests
         run:
-          make run
+          make test

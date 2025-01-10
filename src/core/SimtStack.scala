@@ -57,38 +57,38 @@ class SimtStack(val parameter: SimtStackParameter)
   def addrBits = parameter.addrBits
   def stackDepth = parameter.stackDepth
 
-  val stack_addr = RegInit(0.U(log2Ceil(stackDepth + 1).W))
-  val stack_pop_addr = RegInit(0.U(log2Ceil(stackDepth + 1).W))
+  val stack_addr = RegInit(0.U(log2Ceil(stackDepth).W))
   val diverge_out = RegInit(0.B)
-  val stack_out = io.stack_out
+  val stack_empty = RegInit(1.B)
   val diverge_status = RegInit(VecInit(Seq.fill(stackDepth)(false.B)))
+  val stack_pop_addr = stack_addr - 1.U
 
   // maybe ecc is needed for sram
-  val stack_sram: SRAMInterface[Vec[UInt]] = SRAM(
+  val stack_sram = SRAM(
     size = stackDepth,
-    tpe = Vec(
-      1,
-      UInt((threadNum * 2 + addrBits).W)
-    ),
+    tpe = UInt((io.stack_out.getWidth).W),
     numReadPorts = 0,
     numWritePorts = 0,
     numReadwritePorts = 1
   )
 
-  stack_pop_addr := stack_addr - 1.U
-
   stack_sram.readwritePorts.foreach { ramPort =>
     ramPort.enable := io.push || io.pop
     ramPort.isWrite := io.push
-    ramPort.address := Mux(io.push, stack_addr, stack_pop_addr)
+    ramPort.address := stack_addr
     ramPort.writeData := io.stack_in.asUInt
   }
+
   when(io.push) {
     stack_addr := stack_addr + 1.U
-    stack_pop_addr := stack_addr
   }.elsewhen(io.pop && ~diverge_status(stack_pop_addr)) {
     stack_addr := stack_addr - 1.U
-    stack_pop_addr := stack_pop_addr - 1.U
+  }
+
+  when(io.push) {
+    stack_empty := false.B
+  }.elsewhen(io.pop && ~diverge_status(stack_pop_addr) && stack_pop_addr === 0.U) {
+    stack_empty := true.B
   }
 
   when(io.push) {
@@ -98,8 +98,8 @@ class SimtStack(val parameter: SimtStackParameter)
     diverge_out := diverge_status(stack_pop_addr)
   }
 
-  io.empty := stack_addr === 0.U
-  io.full := stack_addr === stackDepth.U
+  io.empty := stack_empty
+  io.full := stack_addr === 0.U && !stack_empty
   io.diverge_out := diverge_out
-
+  io.stack_out := stack_sram.readwritePorts.head.readData.asTypeOf(io.stack_out)
 }
