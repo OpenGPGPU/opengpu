@@ -19,12 +19,12 @@ class CuTaskBundle(
 
 class StackData(
   threadNum: Int,
-  paddrBits: Int)
+  addrBits:  Int)
     extends Bundle {
   // diverge mask
   val mask = Vec(threadNum, Bool())
   // diverge pc
-  val pc = UInt(paddrBits.W)
+  val pc = UInt(addrBits.W)
   // original mask before diverge
   val orig_mask = Vec(threadNum, Bool())
 }
