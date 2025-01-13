@@ -1,7 +1,7 @@
 package ogpu.core
 
 import chisel3._
-import chisel3.util.{DecoupledIO, PriorityEncoder}
+import chisel3.util.{log2Ceil, DecoupledIO, PriorityEncoder}
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
@@ -73,6 +73,4 @@ class WarpScheduler(val parameter: WarpParameter)
   val lock_warp = RegInit(0.U(log2Ceil(warpNum).W))
   val writer_finish = RegInit(false.B)
 
-
- 
 }
