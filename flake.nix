@@ -22,6 +22,7 @@
           mill
           dtc
           verilator cmake ninja
+          gtkwave
           circt
         ];
       in

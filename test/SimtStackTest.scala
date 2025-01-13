@@ -3,7 +3,7 @@ import chisel3._
 import org.scalatest.flatspec.AnyFlatSpec
 
 import chisel3.util.experimental.loadMemoryFromFileInline
-import chisel3.simulator.EphemeralSimulator._
+import chisel3.simulator.VCDHackedEphemeralSimulator._
 
 import ogpu.core._
 
@@ -11,7 +11,7 @@ class SimtStackTest extends AnyFlatSpec {
   val param = SimtStackParameter(false, false, 32, 40, 2)
   behavior.of("SimtStack")
   it should "push and pop right" in {
-    simulate(new SimtStack(param)) { dut =>
+    simulate(new SimtStack(param), "simtstacktest1") { dut =>
       dut.io.clock.step()
       dut.io.reset.poke(true.B)
       dut.io.clock.step()
