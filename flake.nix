@@ -27,7 +27,7 @@
       in
         {
           legacyPackages = pkgs;
-          devShell = pkgs.mkShell.override { stdenv = pkgs.clangStdenv; } {
+          devShell = pkgs.mkShell {
             buildInputs = deps;
             shellHook = ''
               echo "Hello opengpu world!"
