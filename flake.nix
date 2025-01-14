@@ -19,6 +19,7 @@
         deps = with pkgs; [
           git
           gnumake autoconf automake
+          gcc
           mill
           dtc
           verilator cmake ninja
