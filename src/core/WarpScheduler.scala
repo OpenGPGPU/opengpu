@@ -1,7 +1,7 @@
 package ogpu.core
 
 import chisel3._
-import chisel3.util.{log2Ceil, DecoupledIO, PriorityEncoder}
+import chisel3.util._
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
@@ -73,4 +73,23 @@ class WarpScheduler(val parameter: WarpParameter)
   val lock_warp = RegInit(0.U(log2Ceil(warpNum).W))
   val writer_finish = RegInit(false.B)
 
+  // warp cmd state
+  // when s_idle can accept cmd
+  // then warp is in working state for regs init
+  // finally return to idle
+  val s_idle :: s_working :: Nil = Enum(2)
+  val state = RegInit(s_idle)
+
+  switch(state) {
+    is(s_idle) {
+      when(io.warp_cmd.valid) {
+        state := s_working
+      }
+    }
+    // is(s_working) {
+    //   when(((counter_add1 === io.warp_cmd.vgpr_num) & io.commit_data.fire) | io.warp_cmd.bits.vgpr_num === 0.U) {
+    //     state := s_idle
+    //   }
+    // }
+  }
 }
