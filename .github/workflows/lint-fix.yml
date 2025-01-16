@@ -1,0 +1,49 @@
+name: Lint Fix
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+
+  lint-fix:
+    name: Fix linting issues
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: cachix/install-nix-action@v19
+        with:
+          install_url: https://releases.nixos.org/nix/nix-2.13.3/install
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Coursier Cache
+        uses: coursier/cache-action@v5
+
+      - name: run format
+        run:
+          make format
+
+      # Commit and push changes if any
+      - name: Check for changes
+        id: git-check
+        run: |
+          git diff --quiet || echo "changes=true" >> $GITHUB_OUTPUT
+      - name: Commit and push if there are changes
+        if: steps.git-check.outputs.changes == 'true'
+        run: |
+          git config --local user.email "opengpu@opengpu.noemail"
+          git config --local user.name "OpenGPU CI"
+          git add -A
+          git commit -m "🤖 Auto-fix linting issues"
+          git push
