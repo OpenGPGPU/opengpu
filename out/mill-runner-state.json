@@ -1,0 +1,22 @@
+{
+    "workerCache": {
+        "mill.scalalib.scalafmt.ScalafmtWorkerModule.worker": {
+            "identityHashCode": 790598933,
+            "inputHash": 334424292
+        }
+    },
+    "evalWatched": [
+        "ref:v0:aedc4060:/home/runner/work/opengpu/opengpu/.scalafmt.conf",
+        "ref:v0:aedc4060:/home/runner/work/opengpu/opengpu/.scalafmt.conf",
+        "ref:v0:c984eca8:/home/runner/work/opengpu/opengpu/src/test/scala",
+        "ref:v0:c984eca8:/home/runner/work/opengpu/opengpu/src/test/java",
+        "ref:v0:c984eca8:/home/runner/work/opengpu/opengpu/src/test/scala",
+        "ref:v0:c984eca8:/home/runner/work/opengpu/opengpu/src/test/java",
+        "ref:v0:0bd27535:/home/runner/work/opengpu/opengpu/test"
+    ],
+    "moduleWatched": [],
+    "scriptImportGraph": [],
+    "classLoaderIdentity": [],
+    "runClasspath": [],
+    "runClasspathHash": 473519988
+}

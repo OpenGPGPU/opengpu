@@ -1,0 +1,17 @@
+{
+    "value": [
+        "ref:v0:9075aa5c:/home/runner/work/opengpu/opengpu/out/mill-build/generateScriptSources.dest/millbuild/depends/rvdecoderdb/common.sc",
+        "ref:v0:335458c7:/home/runner/work/opengpu/opengpu/out/mill-build/generateScriptSources.dest/millbuild/depends/chisel/build.sc",
+        "ref:v0:d432aaa5:/home/runner/work/opengpu/opengpu/out/mill-build/generateScriptSources.dest/millbuild/depends/chisel/panama.sc",
+        "ref:v0:399b13c9:/home/runner/work/opengpu/opengpu/out/mill-build/generateScriptSources.dest/millbuild/depends/cde/common.sc",
+        "ref:v0:549ae668:/home/runner/work/opengpu/opengpu/out/mill-build/generateScriptSources.dest/millbuild/depends/hardfloat/common.sc",
+        "ref:v0:37a0f8fd:/home/runner/work/opengpu/opengpu/out/mill-build/generateScriptSources.dest/millbuild/depends/diplomacy/common.sc",
+        "ref:v0:a0129d0a:/home/runner/work/opengpu/opengpu/out/mill-build/generateScriptSources.dest/millbuild/depends/chisel-interface/common.sc",
+        "ref:v0:22c97bfd:/home/runner/work/opengpu/opengpu/out/mill-build/generateScriptSources.dest/millbuild/depends/rocket-chip/common.sc",
+        "ref:v0:eaa5e797:/home/runner/work/opengpu/opengpu/out/mill-build/generateScriptSources.dest/millbuild/depends/arithmetic/common.sc",
+        "ref:v0:012c4d54:/home/runner/work/opengpu/opengpu/out/mill-build/generateScriptSources.dest/millbuild/build.sc",
+        "ref:v0:59445258:/home/runner/work/opengpu/opengpu/out/mill-build/generateScriptSources.dest/millbuild/common.sc"
+    ],
+    "valueHash": -534600267,
+    "inputsHash": 1263804689
+}

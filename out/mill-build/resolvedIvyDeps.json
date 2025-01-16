@@ -1,0 +1,17 @@
+{
+    "value": [
+        "qref:v1:1c2545b1:/home/runner/.cache/coursier/v1/https/repo1.maven.org/maven2/io/chris-kipp/mill-ci-release_mill0.11_2.13/0.1.10/mill-ci-release_mill0.11_2.13-0.1.10.jar",
+        "qref:v1:a60941dc:/home/runner/.cache/coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/mill-contrib-jmh_2.13/0.11.6/mill-contrib-jmh_2.13-0.11.6.jar",
+        "qref:v1:647bb4c6:/home/runner/.cache/coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/mill-moduledefs_2.13/0.10.9/mill-moduledefs_2.13-0.10.9.jar",
+        "qref:v1:0004e741:/home/runner/.cache/coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.13.12/scala-library-2.13.12.jar",
+        "qref:v1:69f20c1b:/home/runner/.cache/coursier/v1/https/repo1.maven.org/maven2/de/tototec/de.tobiasroeser.mill.vcs.version_mill0.11_2.13/0.4.0/de.tobiasroeser.mill.vcs.version_mill0.11_2.13-0.4.0.jar",
+        "qref:v1:388af458:/home/runner/.cache/coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.13.12/scala-compiler-2.13.12.jar",
+        "qref:v1:589290b0:/home/runner/.cache/coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/sourcecode_2.13/0.3.0/sourcecode_2.13-0.3.0.jar",
+        "qref:v1:9ddb38f4:/home/runner/.cache/coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-reflect/2.13.12/scala-reflect-2.13.12.jar",
+        "qref:v1:c3fede0e:/home/runner/.cache/coursier/v1/https/repo1.maven.org/maven2/io/github/java-diff-utils/java-diff-utils/4.12/java-diff-utils-4.12.jar",
+        "qref:v1:cc689ca3:/home/runner/.cache/coursier/v1/https/repo1.maven.org/maven2/org/jline/jline/3.22.0/jline-3.22.0.jar",
+        "qref:v1:85acd520:/home/runner/.cache/coursier/v1/https/repo1.maven.org/maven2/net/java/dev/jna/jna/5.13.0/jna-5.13.0.jar"
+    ],
+    "valueHash": -1645640274,
+    "inputsHash": 675188024
+}

@@ -1,0 +1,17 @@
+{
+    "value": [
+        "ref:v0:f18a6578:/home/runner/work/opengpu/opengpu/depends/diplomacy/common.sc",
+        "ref:v0:85b5c5b2:/home/runner/work/opengpu/opengpu/depends/chisel/build.sc",
+        "ref:v0:a71a9614:/home/runner/work/opengpu/opengpu/depends/chisel-interface/common.sc",
+        "ref:v0:07802a87:/home/runner/work/opengpu/opengpu/depends/rvdecoderdb/common.sc",
+        "ref:v0:fbfa8542:/home/runner/work/opengpu/opengpu/depends/chisel/panama.sc",
+        "ref:v0:892c73fa:/home/runner/work/opengpu/opengpu/build.sc",
+        "ref:v0:a323e437:/home/runner/work/opengpu/opengpu/depends/rocket-chip/common.sc",
+        "ref:v0:fcb8a0ae:/home/runner/work/opengpu/opengpu/depends/cde/common.sc",
+        "ref:v0:e6ce7c0e:/home/runner/work/opengpu/opengpu/depends/arithmetic/common.sc",
+        "ref:v0:97b300ce:/home/runner/work/opengpu/opengpu/depends/hardfloat/common.sc",
+        "ref:v0:f303d56a:/home/runner/work/opengpu/opengpu/common.sc"
+    ],
+    "valueHash": -1836753954,
+    "inputsHash": 1433519217
+}
