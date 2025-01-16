@@ -11,8 +11,8 @@ case class WarpParameter(
   warpNum:       Int,
   stackDepth:    Int,
   xLen:          Int,
-  dimNum:        Int,
-  paddrBits:     Int,
+  dimNum:        Int,  
+  paddrBits:     Int,  
   pgLevels:      Int,
   asidBits:      Int,
   threadNum:     Int)
@@ -23,7 +23,7 @@ case class WarpParameter(
     useAsyncReset = useAsyncReset,
     clockGate = clockGate,
     threadNum = threadNum,
-    addrBits = addrBits,
+    addrBits = addrBits,  
     stackDepth = stackDepth
   )
 }
