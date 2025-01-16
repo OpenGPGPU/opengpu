@@ -44,6 +44,5 @@ jobs:
         run: |
           git config --local user.email "opengpu@opengpu.noemail"
           git config --local user.name "OpenGPU CI"
-          git add -A
-          git commit -m "🤖 Auto-fix linting issues"
+          git commit -a -m "🤖 Auto-fix linting issues"
           git push
