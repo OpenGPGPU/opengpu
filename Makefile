@@ -4,16 +4,14 @@ init:
 resolve: init format
 	nix --experimental-features 'nix-command flakes' develop -c mill -i resolve _
 
-format:
+format: init
 	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.reformat
+	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.test.reformat
 
 run: init format
 	nix --experimental-features 'nix-command flakes' develop -c	mill -i ogpu.runMain  ogpu.rtl.ALURTL
 
-format_test:
-	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.test.reformat
-
-test: init format_test format
+test: init format
 	nix --experimental-features 'nix-command flakes' develop -c	mill -i ogpu.test
 
 clean:
