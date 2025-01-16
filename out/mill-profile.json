@@ -1,0 +1,37 @@
+[
+  {
+    "label": "mill.scalalib.scalafmt.ScalafmtWorkerModule.worker",
+    "millis": 107,
+    "cached": false,
+    "inputsHash": 708503105
+  },
+  {
+    "label": "ogpu.test.sources.super.mill.scalalib.SbtModule.SbtModuleTests.sources",
+    "millis": 7,
+    "inputsHash": 1559340702
+  },
+  {
+    "label": "ogpu.test.sources",
+    "millis": 8,
+    "dependencies": [
+      "ogpu.test.sources.super.mill.scalalib.SbtModule.SbtModuleTests.sources"
+    ],
+    "inputsHash": -1023033246
+  },
+  {
+    "label": "ogpu.test.scalafmtConfig",
+    "millis": 4,
+    "inputsHash": -469940870
+  },
+  {
+    "label": "ogpu.test.reformat",
+    "millis": 1809,
+    "cached": false,
+    "dependencies": [
+      "ogpu.test.scalafmtConfig",
+      "mill.scalalib.scalafmt.ScalafmtWorkerModule.worker",
+      "ogpu.test.sources"
+    ],
+    "inputsHash": 1539831014
+  }
+]

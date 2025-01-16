@@ -1,0 +1,7 @@
+[
+{"name":"mill.scalalib.scalafmt.ScalafmtWorkerModule.worker","cat":"job","ph":"X","ts":179902057,"dur":107933,"pid":1,"tid":0,"args":[]},
+{"name":"ogpu.test.sources.super.mill.scalalib.SbtModule.SbtModuleTests.sources","cat":"job","ph":"X","ts":180010892,"dur":7478,"pid":1,"tid":0,"args":[]},
+{"name":"ogpu.test.sources","cat":"job","ph":"X","ts":180018959,"dur":8395,"pid":1,"tid":0,"args":[]},
+{"name":"ogpu.test.scalafmtConfig","cat":"job","ph":"X","ts":180027735,"dur":4990,"pid":1,"tid":0,"args":[]},
+{"name":"ogpu.test.reformat","cat":"job","ph":"X","ts":180033161,"dur":1809475,"pid":1,"tid":0,"args":[]}
+]

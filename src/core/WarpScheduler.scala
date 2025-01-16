@@ -12,7 +12,7 @@ case class WarpParameter(
   stackDepth:    Int,
   xLen:          Int,
   dimNum:        Int,
-  paddrBits:     Int,            
+  paddrBits:     Int,
   pgLevels:      Int,
   asidBits:      Int,
   threadNum:     Int)

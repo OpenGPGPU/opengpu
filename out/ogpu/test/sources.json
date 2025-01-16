@@ -1,0 +1,9 @@
+{
+    "value": [
+        "ref:v0:c984eca8:/home/runner/work/opengpu/opengpu/src/test/scala",
+        "ref:v0:c984eca8:/home/runner/work/opengpu/opengpu/src/test/java",
+        "ref:v0:0bd27535:/home/runner/work/opengpu/opengpu/test"
+    ],
+    "valueHash": -730733838,
+    "inputsHash": -1023033246
+}
