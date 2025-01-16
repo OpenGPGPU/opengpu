@@ -15,8 +15,10 @@ case class WarpParameter(
   paddrBits:     Int,
   pgLevels:      Int,
   asidBits:      Int,
-  threadNum:     Int)
+  threadNum:     Int)         
     extends SerializableModuleParameter {
+
+
 
   def addrBits = paddrBits
   def simtStackParameter: SimtStackParameter = SimtStackParameter(
