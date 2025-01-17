@@ -15,6 +15,7 @@ class CuTaskBundle(
   val vgprs = Vec(dimNum, UInt(dimWidth.W))
   val vgpr_num = UInt(2.W)
   val sgprs = Vec(16, UInt(xLen.W))
+  val sgpr_num = UInt(4.W)
 }
 
 class StackData(
@@ -27,4 +28,19 @@ class StackData(
   val pc = UInt(addrBits.W)
   // original mask before diverge
   val orig_mask = Vec(threadNum, Bool())
+}
+
+class CommitSData(
+  xLen:      Int,
+  addrWidth: Int,
+  warpNum:   Int,
+  regNum:    Int)
+    extends Bundle {
+  val regIDWidth = log2Ceil(regNum)
+
+  val wid = UInt(log2Ceil(warpNum).W)
+  val mask = Bool()
+  val pc = UInt(addrWidth.W)
+  val rd = UInt(regIDWidth.W)
+  val data = UInt(xLen.W)
 }
