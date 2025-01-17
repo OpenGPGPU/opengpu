@@ -7,18 +7,22 @@ class WarpSchedulerTest extends AnyFlatSpec {
   behavior.of("WarpScheduler")
 
   it should "initialize correctly" in {
-    simulate(new WarpScheduler(WarpParameter(
-      useAsyncReset = false,
-      clockGate = false,
-      warpNum = 4,
-      stackDepth = 8,
-      xLen = 64,
-      dimNum = 3,
-      paddrBits = 32,
-      pgLevels = 2,
-      asidBits = 8,
-      threadNum = 32
-    ))) { dut =>
+    simulate(
+      new WarpScheduler(
+        WarpParameter(
+          useAsyncReset = false,
+          clockGate = false,
+          warpNum = 4,
+          stackDepth = 8,
+          xLen = 64,
+          dimNum = 3,
+          paddrBits = 32,
+          pgLevels = 2,
+          asidBits = 8,
+          threadNum = 32
+        )
+      )
+    ) { dut =>
       dut.io.clock.step()
       dut.io.reset.poke(true.B)
       dut.io.clock.step()
@@ -34,18 +38,22 @@ class WarpSchedulerTest extends AnyFlatSpec {
   }
 
   it should "schedule warps correctly" in {
-    simulate(new WarpScheduler(WarpParameter(
-      useAsyncReset = false,
-      clockGate = false,
-      warpNum = 4,
-      stackDepth = 8,
-      xLen = 64,
-      dimNum = 3,
-      paddrBits = 32,
-      pgLevels = 2,
-      asidBits = 8,
-      threadNum = 32
-    ))) { dut =>
+    simulate(
+      new WarpScheduler(
+        WarpParameter(
+          useAsyncReset = false,
+          clockGate = false,
+          warpNum = 4,
+          stackDepth = 8,
+          xLen = 64,
+          dimNum = 3,
+          paddrBits = 32,
+          pgLevels = 2,
+          asidBits = 8,
+          threadNum = 32
+        )
+      )
+    ) { dut =>
       dut.io.clock.step()
       dut.io.reset.poke(true.B)
       dut.io.clock.step()
