@@ -98,7 +98,7 @@ jobs:
           PAT_USERNAME: ${{ secrets.PAT_USERNAME }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          required_vars=("LLM_API_KEY")
+          required_vars=("LLM_API_KEY" "LLM_MODEL")
           for var in "${required_vars[@]}"; do
             if [ -z "${!var}" ]; then
               echo "Error: Required environment variable $var is not set."
@@ -207,14 +207,16 @@ jobs:
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           PYTHONPATH: ""
         run: |
+          echo "llm model ${LLM_MODEL}"
+          echo "llm base url ${LLM_BASE_URL}"
           cd /tmp && python -m openhands.resolver.resolve_issue \
             --repo ${{ github.repository }} \
             --issue-number ${{ env.ISSUE_NUMBER }} \
             --issue-type ${{ env.ISSUE_TYPE }} \
             --max-iterations ${{ env.MAX_ITERATIONS }} \
             --comment-id ${{ env.COMMENT_ID }} \
-            --llm-model ${{ env.LLM_MODEL }} \
-            --llm-api-key ${{ env. LLM_API_KEY }}
+            --llm-model ${LLM_MODEL} \
+            --llm-api-key ${LLM_API_KEY}
 
       - name: Check resolution result
         id: check_result
