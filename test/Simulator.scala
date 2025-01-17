@@ -66,7 +66,7 @@ object VCDHackedEphemeralSimulator extends PeekPokeAPI {
     // HACK: use $PWD/test_run_dir like in old versions of Chisel
     // new DefaultSimulator(Files.createTempDirectory(s"${className}_${id}_").toString)
     new DefaultSimulator(
-      Files.createDirectories(java.nio.file.Paths.get(s"test_run_dir/${className()}_${id}_")).toAbsolutePath.toString
+      Files.createDirectories(java.nio.file.Paths.get(s"test_run_dir/${className()}")).toAbsolutePath.toString
     )
   }
 }

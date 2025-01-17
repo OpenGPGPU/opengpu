@@ -58,7 +58,7 @@ class SGPRWriter(val parameter: SGPRWriterParameter)
       }
     }
     is(s_working) {
-      when(((commit_counter === io.warp_cmd.bits.sgpr_num) & io.commit_data.fire) | io.warp_cmd.bits.sgpr_num === 0.U) {
+      when(((counter_add1 === io.warp_cmd.bits.sgpr_num) & io.commit_data.fire) | io.warp_cmd.bits.sgpr_num === 0.U) {
         state := s_finish
       }
     }
@@ -69,10 +69,16 @@ class SGPRWriter(val parameter: SGPRWriterParameter)
     }
   }
 
+  when(io.commit_data.fire) {
+    commit_counter := counter_add1
+  }
+
+  io.commit_data.valid := state === s_working
   io.commit_data.bits.wid := io.wid
   io.commit_data.bits.rd := commit_counter
   io.commit_data.bits.pc := 0.U
   io.commit_data.bits.data := commit_data
   io.commit_data.bits.mask := io.warp_cmd.bits.mask(0)
   io.finish.valid := state === s_finish
+  io.finish.bits := state === s_finish
 }
