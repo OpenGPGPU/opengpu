@@ -15,7 +15,6 @@ case class SGPRWriterParameter(
   addrWidth:     Int)
     extends SerializableModuleParameter
 
-
 class SGPRWriterInterface(parameter: SGPRWriterParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())

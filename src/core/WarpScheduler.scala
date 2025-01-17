@@ -87,7 +87,6 @@ class WarpScheduler(val parameter: WarpParameter)
       }
     }
 
-    
     // is(s_working) {
     //   when(((counter_add1 === io.warp_cmd.vgpr_num) & io.commit_data.fire) | io.warp_cmd.bits.vgpr_num === 0.U) {
     //     state := s_idle
