@@ -10,7 +10,7 @@ on:
       macro:
         required: false
         type: string
-        default: "@donaldkuck"
+        default: "@openhands-agent"
       target_branch:
         required: false
         type: string
@@ -61,12 +61,12 @@ jobs:
       github.event.label.name == 'fix-me-experimental' ||
       (
         ((github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment') &&
-        contains(github.event.comment.body, inputs.macro || '@donaldkuck') &&
+        contains(github.event.comment.body, inputs.macro || '@openhands-agent') &&
         (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'COLLABORATOR' || github.event.comment.author_association == 'MEMBER')
         ) ||
 
         (github.event_name == 'pull_request_review' &&
-        contains(github.event.review.body, inputs.macro || '@donaldkuck') &&
+        contains(github.event.review.body, inputs.macro || '@openhands-agent') &&
         (github.event.review.author_association == 'OWNER' || github.event.review.author_association == 'COLLABORATOR' || github.event.review.author_association == 'MEMBER')
         )
       )
@@ -116,7 +116,7 @@ jobs:
           fi
 
           if [ -z "$PAT_USERNAME" ]; then
-            echo "Warning: PAT_USERNAME is not set, will use opengpu-agent"
+            echo "Warning: PAT_USERNAME is not set, will use openhands-agent"
           fi
 
       - name: Set environment variables
@@ -162,7 +162,7 @@ jobs:
               issue_number: ${{ env.ISSUE_NUMBER }},
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `[OpenGPU-Agent] started fixing the ${issueType}! You can monitor the progress [here](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`
+              body: `[OpenHands-Agent] started fixing the ${issueType}! You can monitor the progress [here](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`
             });
 
       - name: Install OpenHands
@@ -183,9 +183,9 @@ jobs:
             const isExperimentalLabel = labelName === "fix-me-experimental";
             const isIssueCommentExperimental =
               (eventName === "issue_comment" || eventName === "pull_request_review_comment") &&
-              commentBody.includes("@donaldkuck");
+              commentBody.includes("@openhands-agent");
             const isReviewCommentExperimental =
-              eventName === "pull_request_review" && reviewBody.includes("@donaldkuck");
+              eventName === "pull_request_review" && reviewBody.includes("@openhands-agent");
 
             // Perform package installation
             if (isExperimentalLabel || isIssueCommentExperimental || isReviewCommentExperimental) {
@@ -201,7 +201,7 @@ jobs:
       - name: Attempt to resolve issue
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || github.token }}
-          GITHUB_USERNAME: ${{ secrets.PAT_USERNAME || 'donaldkuck' }}
+          GITHUB_USERNAME: ${{ secrets.PAT_USERNAME || 'openhands-agent' }}
           LLM_MODEL: ${{ secrets.LLM_MODEL || inputs.LLM_MODEL }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
@@ -239,7 +239,7 @@ jobs:
         if: always() # Create PR or branch even if the previous steps fail
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || github.token }}
-          GITHUB_USERNAME: ${{ secrets.PAT_USERNAME || 'opengpu-agent' }}
+          GITHUB_USERNAME: ${{ secrets.PAT_USERNAME || 'openhands-agent' }}
           LLM_MODEL: ${{ secrets.LLM_MODEL || inputs.LLM_MODEL }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
