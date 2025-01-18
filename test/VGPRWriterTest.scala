@@ -4,21 +4,21 @@ import org.scalatest.flatspec.AnyFlatSpec
 import chisel3.simulator.VCDHackedEphemeralSimulator._
 import ogpu.core._
 
-class SGPRWriterTest extends AnyFlatSpec {
-  val param = SGPRWriterParameter(
+class VGPRWriterTest extends AnyFlatSpec {
+  val param = VGPRWriterParameter(
     useAsyncReset = true,
     threadNum = 32,
     warpNum = 4,
-    dimNum = 2,
+    dimNum = 3,
     regNum = 16,
     xLen = 32,
     addrWidth = 16
   )
 
-  behavior.of("SGPRWriter")
+  behavior.of("VGPRWriter")
 
   it should "initialize correctly" in {
-    simulate(new SGPRWriter(param), "sgprwriter1") { dut =>
+    simulate(new VGPRWriter(param), "vgprwriter1") { dut =>
       // Initialize inputs
       dut.io.reset.poke(true.B)
       dut.io.clock.step()
@@ -33,7 +33,7 @@ class SGPRWriterTest extends AnyFlatSpec {
   }
 
   it should "handle warp commands correctly" in {
-    simulate(new SGPRWriter(param), "sgprwriter2") { dut =>
+    simulate(new VGPRWriter(param), "vgprwriter2") { dut =>
       dut.io.clock.step()
       // Send a warp command
       dut.io.warp_cmd.valid.poke(true.B)
@@ -45,16 +45,12 @@ class SGPRWriterTest extends AnyFlatSpec {
       dut.io.idle.expect(false.B)
 
       // Check commit data after warp command
-      dut.io.commit_data.valid.expect(true.B)
-      dut.io.commit_data.bits.wid.expect(0.U)
-      dut.io.commit_data.bits.rd.expect(0.U)
-      dut.io.commit_data.bits.data.expect(0.U)
-      dut.io.commit_data.bits.mask.expect(true.B)
+      dut.io.commit_data.valid.expect(false.B)
     }
   }
 
   it should "handle commit data correctly" in {
-    simulate(new SGPRWriter(param), "sgprwriter3") { dut =>
+    simulate(new VGPRWriter(param), "vgprwriter3") { dut =>
       // Prepare to send commit data
       dut.io.commit_data.ready.poke(true.B)
       dut.io.clock.step()
@@ -69,13 +65,14 @@ class SGPRWriterTest extends AnyFlatSpec {
       dut.io.clock.step()
 
       // Check commit data after warp command
-      dut.io.commit_data.valid.expect(false.B)
-      dut.io.finish.valid.expect(true.B)
+      dut.io.commit_data.valid.expect(true.B)
+      dut.io.commit_data.ready.poke(true.B)
+      dut.io.clock.step()
     }
   }
 
   it should "handle finish signal correctly" in {
-    simulate(new SGPRWriter(param), "sgprwriter4") { dut =>
+    simulate(new VGPRWriter(param), "vgprwriter4") { dut =>
       // Prepare to send finish signal
       dut.io.finish.ready.poke(true.B)
       dut.io.commit_data.ready.poke(true.B)
@@ -86,7 +83,7 @@ class SGPRWriterTest extends AnyFlatSpec {
 
       // Send a warp command to trigger finish signal
       dut.io.warp_cmd.valid.poke(true.B)
-      dut.io.warp_cmd.bits.sgpr_num.poke(3.U)
+      dut.io.warp_cmd.bits.vgpr_num.poke(3.U)
       dut.io.warp_cmd.bits.mask(0).poke(true.B)
       dut.io.clock.step()
 

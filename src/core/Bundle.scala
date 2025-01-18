@@ -56,7 +56,7 @@ class StackData(
   val orig_mask = Vec(threadNum, Bool()) // Original mask before divergence
 }
 
-/** Commit Stage Data Structure
+/** Commit Scalar Data Structure
   *
   * Contains the data needed for instruction commit, including register write information and program counter state.
   *
@@ -82,4 +82,35 @@ class CommitSData(
   val pc = UInt(addrWidth.W) // Program counter value
   val rd = UInt(regIDWidth.W) // Destination register ID
   val data = UInt(xLen.W) // Data to be written
+}
+
+/** Commit Vector Data Structure
+  *
+  * Contains the data needed for instruction commit, including register write information and program counter state.
+  *
+  * @param xLen
+  *   Scalar register width in bits
+  * @param addrWidth
+  *   Address width in bits
+  * @param warpNum
+  *   Number of warps
+  * @param regNum
+  *   Number of registers
+  * @param threadNum
+  *   Number of threads
+  */
+class CommitVData(
+  xLen:      Int, // register width in bits
+  threadNum: Int, // Number of thread in a warp
+  addrWidth: Int, // Address width in bits
+  warpNum:   Int, // Number of warps
+  regNum:    Int) // Number of registers
+    extends Bundle {
+  val regIDWidth = log2Ceil(regNum) // Width of register ID field
+
+  val wid = UInt(log2Ceil(warpNum).W) // Warp ID
+  val mask = Bool() // Commit mask
+  val pc = UInt(addrWidth.W) // Program counter value
+  val rd = UInt(regIDWidth.W) // Destination register ID
+  val data = Vec(threadNum, UInt(xLen.W)) // Data to be written
 }

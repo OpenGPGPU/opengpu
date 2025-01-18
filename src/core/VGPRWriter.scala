@@ -5,7 +5,7 @@ import chisel3.util._
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
-case class SGPRWriterParameter(
+case class VGPRWriterParameter(
   useAsyncReset: Boolean,
   threadNum:     Int,
   warpNum:       Int,
@@ -15,7 +15,7 @@ case class SGPRWriterParameter(
   addrWidth:     Int)
     extends SerializableModuleParameter
 
-class SGPRWriterInterface(parameter: SGPRWriterParameter) extends Bundle {
+class VGPRWriterInterface(parameter: VGPRWriterParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val warp_cmd = Input(
@@ -23,23 +23,26 @@ class SGPRWriterInterface(parameter: SGPRWriterParameter) extends Bundle {
   )
   val wid = Input(UInt(log2Ceil(parameter.warpNum).W))
   val commit_data = DecoupledIO(
-    new CommitSData(parameter.xLen, parameter.addrWidth, parameter.warpNum, parameter.regNum)
+    new CommitVData(parameter.xLen, parameter.threadNum, parameter.addrWidth, parameter.warpNum, parameter.regNum)
   )
   val finish = DecoupledIO(Bool())
   val idle = Output(Bool())
 }
 
 @instantiable
-class SGPRWriter(val parameter: SGPRWriterParameter)
-    extends FixedIORawModule(new SGPRWriterInterface(parameter))
-    with SerializableModule[SGPRWriterParameter]
+class VGPRWriter(val parameter: VGPRWriterParameter)
+    extends FixedIORawModule(new VGPRWriterInterface(parameter))
+    with SerializableModule[VGPRWriterParameter]
     with ImplicitClock
     with ImplicitReset
     with Public {
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
-  def regIDWidth = log2Ceil(parameter.regNum)
+  def regNum = parameter.regNum
+  def regIDWidth = log2Ceil(regNum)
+  def xLen = parameter.xLen
+  def threadNum = parameter.threadNum
 
   val s_idle :: s_working :: s_finish :: Nil = Enum(3)
 
@@ -51,16 +54,21 @@ class SGPRWriter(val parameter: SGPRWriterParameter)
 
   io.idle := state === s_idle
 
+  val tid_data = Wire(Vec(3, Vec(threadNum, UInt(xLen.W))))
+  tid_data(0) := VecInit.tabulate(threadNum) { i => io.warp_cmd.bits.vgprs(0) | i.U }
+  tid_data(1) := VecInit.tabulate(threadNum) { _ => io.warp_cmd.bits.vgprs(1) }
+  tid_data(2) := VecInit.tabulate(threadNum) { _ => io.warp_cmd.bits.vgprs(2) }
+
   switch(state) {
     is(s_idle) {
-      when(io.warp_cmd.valid && io.warp_cmd.bits.sgpr_num =/= 0.U) {
+      when(io.warp_cmd.valid && io.warp_cmd.bits.vgpr_num =/= 0.U) {
         state := s_working
       }.elsewhen(io.warp_cmd.valid) {
         state := s_finish
       }
     }
     is(s_working) {
-      when(((counter_add1 === io.warp_cmd.bits.sgpr_num) & io.commit_data.fire) | io.warp_cmd.bits.sgpr_num === 0.U) {
+      when(((counter_add1 === io.warp_cmd.bits.vgpr_num) & io.commit_data.fire) | io.warp_cmd.bits.vgpr_num === 0.U) {
         state := s_finish
       }
     }
@@ -79,7 +87,7 @@ class SGPRWriter(val parameter: SGPRWriterParameter)
   io.commit_data.bits.wid := io.wid
   io.commit_data.bits.rd := commit_counter
   io.commit_data.bits.pc := 0.U
-  io.commit_data.bits.data := commit_data
+  io.commit_data.bits.data := tid_data(commit_counter)
   io.commit_data.bits.mask := io.warp_cmd.bits.mask(0)
   io.finish.valid := state === s_finish
   io.finish.bits := state === s_finish
