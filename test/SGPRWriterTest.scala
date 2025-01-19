@@ -12,7 +12,7 @@ class SGPRWriterTest extends AnyFlatSpec {
     dimNum = 2,
     regNum = 16,
     xLen = 32,
-    addrWidth = 16
+    addrBits = 16
   )
 
   behavior.of("SGPRWriter")

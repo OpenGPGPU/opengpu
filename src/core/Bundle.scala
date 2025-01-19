@@ -70,16 +70,16 @@ class StackData(
   *   Number of registers
   */
 class CommitSData(
-  xLen:      Int, // Scalar register width in bits
-  addrWidth: Int, // Address width in bits
-  warpNum:   Int, // Number of warps
-  regNum:    Int) // Number of registers
+  xLen:     Int, // Scalar register width in bits
+  addrBits: Int, // Address width in bits
+  warpNum:  Int, // Number of warps
+  regNum:   Int) // Number of registers
     extends Bundle {
   val regIDWidth = log2Ceil(regNum) // Width of register ID field
 
   val wid = UInt(log2Ceil(warpNum).W) // Warp ID
   val mask = Bool() // Commit mask
-  val pc = UInt(addrWidth.W) // Program counter value
+  val pc = UInt(addrBits.W) // Program counter value
   val rd = UInt(regIDWidth.W) // Destination register ID
   val data = UInt(xLen.W) // Data to be written
 }
@@ -90,7 +90,7 @@ class CommitSData(
   *
   * @param xLen
   *   Scalar register width in bits
-  * @param addrWidth
+  * @param addrBits
   *   Address width in bits
   * @param warpNum
   *   Number of warps
@@ -102,7 +102,7 @@ class CommitSData(
 class CommitVData(
   xLen:      Int, // register width in bits
   threadNum: Int, // Number of thread in a warp
-  addrWidth: Int, // Address width in bits
+  addrBits:  Int, // Address width in bits
   warpNum:   Int, // Number of warps
   regNum:    Int) // Number of registers
     extends Bundle {
@@ -110,7 +110,7 @@ class CommitVData(
 
   val wid = UInt(log2Ceil(warpNum).W) // Warp ID
   val mask = Bool() // Commit mask
-  val pc = UInt(addrWidth.W) // Program counter value
+  val pc = UInt(addrBits.W) // Program counter value
   val rd = UInt(regIDWidth.W) // Destination register ID
   val data = Vec(threadNum, UInt(xLen.W)) // Data to be written
 }

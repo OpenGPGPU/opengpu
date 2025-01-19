@@ -12,7 +12,7 @@ case class VGPRWriterParameter(
   dimNum:        Int,
   regNum:        Int,
   xLen:          Int,
-  addrWidth:     Int)
+  addrBits:      Int)
     extends SerializableModuleParameter
 
 class VGPRWriterInterface(parameter: VGPRWriterParameter) extends Bundle {
@@ -23,7 +23,7 @@ class VGPRWriterInterface(parameter: VGPRWriterParameter) extends Bundle {
   )
   val wid = Input(UInt(log2Ceil(parameter.warpNum).W))
   val commit_data = DecoupledIO(
-    new CommitVData(parameter.xLen, parameter.threadNum, parameter.addrWidth, parameter.warpNum, parameter.regNum)
+    new CommitVData(parameter.xLen, parameter.threadNum, parameter.addrBits, parameter.warpNum, parameter.regNum)
   )
   val finish = DecoupledIO(Bool())
   val idle = Output(Bool())
