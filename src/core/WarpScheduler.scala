@@ -12,13 +12,12 @@ case class WarpParameter(
   stackDepth:    Int,
   xLen:          Int,
   dimNum:        Int,
-  paddrBits:     Int,
+  addrBits:      Int,
   pgLevels:      Int,
   asidBits:      Int,
   threadNum:     Int)
     extends SerializableModuleParameter {
 
-  def addrBits = paddrBits
   def simtStackParameter: SimtStackParameter = SimtStackParameter(
     useAsyncReset = useAsyncReset,
     clockGate = clockGate,
@@ -26,6 +25,27 @@ case class WarpParameter(
     addrBits = addrBits,
     stackDepth = stackDepth
   )
+
+  def vgprWriterParameter: VGPRWriterParameter = VGPRWriterParameter(
+    useAsyncReset = useAsyncReset,
+    threadNum = threadNum,
+    warpNum = warpNum,
+    dimNum = dimNum,
+    regNum = 16,
+    xLen = xLen,
+    addrBits = addrBits
+  )
+
+  def sgprWriterParameter: SGPRWriterParameter = SGPRWriterParameter(
+    useAsyncReset = useAsyncReset,
+    threadNum = threadNum,
+    warpNum = warpNum,
+    dimNum = dimNum,
+    regNum = 16,
+    xLen = xLen,
+    addrBits = addrBits
+  )
+
 }
 
 class WarpInterface(parameter: WarpParameter) extends Bundle {
@@ -64,33 +84,60 @@ class WarpScheduler(val parameter: WarpParameter)
   val idle_id = PriorityEncoder(warp_idle)
   val active_id = PriorityEncoder(warp_active)
 
-  val simt_stack = VecInit(Seq.fill(warpNum)(Module(new SimtStack(simtStackParameter)).io))
+  // val simt_stack = VecInit(Seq.fill(warpNum)(Module(new SimtStack(simtStackParameter)).io))
+  val vgpr_writer = Module(new VGPRWriter(parameter.vgprWriterParameter))
+  val sgpr_writer = Module(new SGPRWriter(parameter.sgprWriterParameter))
 
-  val pop_diverge = Wire(Bool())
-  val pop_data = Wire(new StackData(threadNum, addrBits))
+  // val pop_diverge = Wire(Bool())
+  // val pop_data = Wire(new StackData(threadNum, addrBits))
 
   // the warp which accepts a new command
   val lock_warp = RegInit(0.U(log2Ceil(warpNum).W))
-  val writer_finish = RegInit(false.B)
 
   // warp cmd state
   // when s_idle can accept cmd
   // then warp is in working state for regs init
   // finally return to idle
-  val s_idle :: s_working :: Nil = Enum(2)
+  val s_idle :: s_working :: s_finish :: Nil = Enum(3)
   val state = RegInit(s_idle)
+
+  vgpr_writer.io.clock := io.clock
+  vgpr_writer.io.reset := io.reset
+  vgpr_writer.io.warp_cmd.bits := io.warp_cmd.bits
+  vgpr_writer.io.warp_cmd.valid := io.warp_cmd.valid && has_idle
+  vgpr_writer.io.wid := lock_warp
+  vgpr_writer.io.finish.ready := state === s_finish
+
+  sgpr_writer.io.clock := io.clock
+  sgpr_writer.io.reset := io.reset
+  sgpr_writer.io.warp_cmd.bits := io.warp_cmd.bits
+  sgpr_writer.io.warp_cmd.valid := io.warp_cmd.valid && has_idle
+  sgpr_writer.io.wid := lock_warp
+  sgpr_writer.io.finish.ready := state === s_finish
+
+  io.warp_cmd.ready := state === s_finish
+
+  // temp
+  vgpr_writer.io.commit_data.ready := true.B
+  sgpr_writer.io.commit_data.ready := true.B
 
   switch(state) {
     is(s_idle) {
-      when(io.warp_cmd.valid) {
+      when(io.warp_cmd.valid && has_idle) {
         state := s_working
+        lock_warp := idle_id
       }
     }
 
-    // is(s_working) {
-    //   when(((counter_add1 === io.warp_cmd.vgpr_num) & io.commit_data.fire) | io.warp_cmd.bits.vgpr_num === 0.U) {
-    //     state := s_idle
-    //   }
-    // }
+    is(s_working) {
+      when(sgpr_writer.io.finish.valid && vgpr_writer.io.finish.valid) {
+        state := s_finish
+      }
+    }
+
+    is(s_finish) {
+      state := s_idle
+      // start compute unit
+    }
   }
 }

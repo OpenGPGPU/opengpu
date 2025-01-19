@@ -12,7 +12,7 @@ class VGPRWriterTest extends AnyFlatSpec {
     dimNum = 3,
     regNum = 16,
     xLen = 32,
-    addrWidth = 16
+    addrBits = 16
   )
 
   behavior.of("VGPRWriter")

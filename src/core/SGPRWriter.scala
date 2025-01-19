@@ -12,7 +12,7 @@ case class SGPRWriterParameter(
   dimNum:        Int,
   regNum:        Int,
   xLen:          Int,
-  addrWidth:     Int)
+  addrBits:      Int)
     extends SerializableModuleParameter
 
 class SGPRWriterInterface(parameter: SGPRWriterParameter) extends Bundle {
@@ -23,7 +23,7 @@ class SGPRWriterInterface(parameter: SGPRWriterParameter) extends Bundle {
   )
   val wid = Input(UInt(log2Ceil(parameter.warpNum).W))
   val commit_data = DecoupledIO(
-    new CommitSData(parameter.xLen, parameter.addrWidth, parameter.warpNum, parameter.regNum)
+    new CommitSData(parameter.xLen, parameter.addrBits, parameter.warpNum, parameter.regNum)
   )
   val finish = DecoupledIO(Bool())
   val idle = Output(Bool())
