@@ -84,15 +84,22 @@ class WarpScheduler(val parameter: WarpParameter)
   val idle_id = PriorityEncoder(warp_idle)
   val active_id = PriorityEncoder(warp_active)
 
-  val simt_stack = VecInit(Seq.fill(warpNum)(Module(new SimtStack(simtStackParameter)).io))
+  // val simt_stack = VecInit(Seq.fill(warpNum)(Module(new SimtStack(simtStackParameter)).io))
   val vgpr_writer = Module(new VGPRWriter(parameter.vgprWriterParameter))
   val sgpr_writer = Module(new SGPRWriter(parameter.sgprWriterParameter))
 
-  val pop_diverge = Wire(Bool())
-  val pop_data = Wire(new StackData(threadNum, addrBits))
+  // val pop_diverge = Wire(Bool())
+  // val pop_data = Wire(new StackData(threadNum, addrBits))
 
   // the warp which accepts a new command
   val lock_warp = RegInit(0.U(log2Ceil(warpNum).W))
+
+  // warp cmd state
+  // when s_idle can accept cmd
+  // then warp is in working state for regs init
+  // finally return to idle
+  val s_idle :: s_working :: s_finish :: Nil = Enum(3)
+  val state = RegInit(s_idle)
 
   vgpr_writer.io.clock := io.clock
   vgpr_writer.io.reset := io.reset
@@ -108,12 +115,11 @@ class WarpScheduler(val parameter: WarpParameter)
   sgpr_writer.io.wid := lock_warp
   sgpr_writer.io.finish.ready := state === s_finish
 
-  // warp cmd state
-  // when s_idle can accept cmd
-  // then warp is in working state for regs init
-  // finally return to idle
-  val s_idle :: s_working :: s_finish :: Nil = Enum(3)
-  val state = RegInit(s_idle)
+  io.warp_cmd.ready := state === s_finish
+
+  // temp
+  vgpr_writer.io.commit_data.ready := true.B
+  sgpr_writer.io.commit_data.ready := true.B
 
   switch(state) {
     is(s_idle) {
@@ -129,10 +135,9 @@ class WarpScheduler(val parameter: WarpParameter)
       }
     }
 
-    // is(s_finish) {
-    //   when() {
-    //     state := s_idle
-    //   }
-    // }
+    is(s_finish) {
+      state := s_idle
+      // start compute unit
+    }
   }
 }

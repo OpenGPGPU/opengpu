@@ -39,18 +39,16 @@ class VGPRWriter(val parameter: VGPRWriterParameter)
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
-  def regNum = parameter.regNum
-  def regIDWidth = log2Ceil(regNum)
+  def dimNumWidth = log2Ceil(parameter.dimNum)
   def xLen = parameter.xLen
   def threadNum = parameter.threadNum
 
   val s_idle :: s_working :: s_finish :: Nil = Enum(3)
 
-  val commit_counter = RegInit(0.U(regIDWidth.W))
+  val commit_counter = RegInit(0.U(dimNumWidth.W))
   val state = RegInit(s_idle)
 
   val counter_add1 = commit_counter + 1.U
-  val commit_data = io.warp_cmd.bits.sgprs(commit_counter)
 
   io.idle := state === s_idle
 
