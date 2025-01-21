@@ -18,6 +18,7 @@
         pkgs = import nixpkgs { inherit system; overlays = [ overlay ]; };
         deps = with pkgs; [
           git
+          openjdk
           gnumake autoconf automake
           gcc
           mill

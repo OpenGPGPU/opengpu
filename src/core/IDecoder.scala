@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2024 Jiuyang Liu <liu@jiuyang.me>
-// SPDX-FileCopyrightText: 2024 DonaldDuck <vivazsj@gmail.com>
-//
 package ogpu.core
 
 import chisel3._

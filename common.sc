@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2022 Jiuyang Liu <liu@jiuyang.me>
-// SPDX-FileCopyrightText: 2024 DonaldDuck <vivazsj@gmail.com>
 
 import mill._
 import mill.scalalib._

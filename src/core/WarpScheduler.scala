@@ -26,7 +26,7 @@ case class WarpParameter(
     stackDepth = stackDepth
   )
 
-  def vgprWriterParameter: VGPRWriterParameter = VGPRWriterParameter(
+  def vgprIniterParameter: VGPRIniterParameter = VGPRIniterParameter(
     useAsyncReset = useAsyncReset,
     threadNum = threadNum,
     warpNum = warpNum,
@@ -36,7 +36,7 @@ case class WarpParameter(
     addrBits = addrBits
   )
 
-  def sgprWriterParameter: SGPRWriterParameter = SGPRWriterParameter(
+  def sgprIniterParameter: SGPRIniterParameter = SGPRIniterParameter(
     useAsyncReset = useAsyncReset,
     threadNum = threadNum,
     warpNum = warpNum,
@@ -85,8 +85,8 @@ class WarpScheduler(val parameter: WarpParameter)
   val active_id = PriorityEncoder(warp_active)
 
   // val simt_stack = VecInit(Seq.fill(warpNum)(Module(new SimtStack(simtStackParameter)).io))
-  val vgpr_writer = Module(new VGPRWriter(parameter.vgprWriterParameter))
-  val sgpr_writer = Module(new SGPRWriter(parameter.sgprWriterParameter))
+  val vgpr_writer = Module(new VGPRIniter(parameter.vgprIniterParameter))
+  val sgpr_writer = Module(new SGPRIniter(parameter.sgprIniterParameter))
 
   // val pop_diverge = Wire(Bool())
   // val pop_data = Wire(new StackData(threadNum, addrBits))

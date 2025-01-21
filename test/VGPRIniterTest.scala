@@ -4,8 +4,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import chisel3.simulator.VCDHackedEphemeralSimulator._
 import ogpu.core._
 
-class VGPRWriterTest extends AnyFlatSpec {
-  val param = VGPRWriterParameter(
+class VGPRIniterTest extends AnyFlatSpec {
+  val param = VGPRIniterParameter(
     useAsyncReset = true,
     threadNum = 32,
     warpNum = 4,
@@ -15,10 +15,10 @@ class VGPRWriterTest extends AnyFlatSpec {
     addrBits = 16
   )
 
-  behavior.of("VGPRWriter")
+  behavior.of("VGPRIniter")
 
   it should "initialize correctly" in {
-    simulate(new VGPRWriter(param), "vgprwriter1") { dut =>
+    simulate(new VGPRIniter(param), "vgpriniter1") { dut =>
       // Initialize inputs
       dut.io.reset.poke(true.B)
       dut.io.clock.step()
@@ -33,7 +33,7 @@ class VGPRWriterTest extends AnyFlatSpec {
   }
 
   it should "handle warp commands correctly" in {
-    simulate(new VGPRWriter(param), "vgprwriter2") { dut =>
+    simulate(new VGPRIniter(param), "vgpriniter2") { dut =>
       dut.io.clock.step()
       // Send a warp command
       dut.io.warp_cmd.valid.poke(true.B)
@@ -50,7 +50,7 @@ class VGPRWriterTest extends AnyFlatSpec {
   }
 
   it should "handle commit data correctly" in {
-    simulate(new VGPRWriter(param), "vgprwriter3") { dut =>
+    simulate(new VGPRIniter(param), "vgpriniter3") { dut =>
       // Prepare to send commit data
       dut.io.commit_data.ready.poke(true.B)
       dut.io.clock.step()
@@ -72,7 +72,7 @@ class VGPRWriterTest extends AnyFlatSpec {
   }
 
   it should "handle finish signal correctly" in {
-    simulate(new VGPRWriter(param), "vgprwriter4") { dut =>
+    simulate(new VGPRIniter(param), "vgpriniter4") { dut =>
       // Prepare to send finish signal
       dut.io.finish.ready.poke(true.B)
       dut.io.commit_data.ready.poke(true.B)

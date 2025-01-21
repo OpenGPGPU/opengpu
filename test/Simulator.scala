@@ -31,7 +31,7 @@ object VCDHackedEphemeralSimulator extends PeekPokeAPI {
     makeSimulator(name)
       .simulate(module)({ module =>
         // HACK enable tracing
-        module.controller.setTraceEnabled(true)
+        // module.controller.setTraceEnabled(true)
         body(module.wrapped)
       })
       .result
@@ -43,7 +43,7 @@ object VCDHackedEphemeralSimulator extends PeekPokeAPI {
     val commonCompilationSettings = CommonCompilationSettings()
     // HACK to enable VCD dumping
     val backendSpecificCompilationSettings = verilator.Backend.CompilationSettings(
-      traceStyle = Some(verilator.Backend.CompilationSettings.TraceStyle.Vcd(traceUnderscore = true))
+      // traceStyle = Some(verilator.Backend.CompilationSettings.TraceStyle.Vcd(traceUnderscore = true))
     )
 
     // HACK don't delete temporary workspace to keep VCD

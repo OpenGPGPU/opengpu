@@ -274,7 +274,7 @@ trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule with SbtModul
     with TestModule.ScalaTest
     with ScalafmtModule {
 
-    override def forkArgs = Seq("-Xmx8G", "-Xss256m")
+    override def forkArgs = Seq("-Xmx6G", "-Xss256m")
 
     override def sources = T.sources {
       super.sources() ++ Seq(PathRef(this.millSourcePath / "test"))

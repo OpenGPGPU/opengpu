@@ -5,7 +5,7 @@ import chisel3.util._
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
-case class SGPRWriterParameter(
+case class SGPRIniterParameter(
   useAsyncReset: Boolean,
   threadNum:     Int,
   warpNum:       Int,
@@ -15,7 +15,7 @@ case class SGPRWriterParameter(
   addrBits:      Int)
     extends SerializableModuleParameter
 
-class SGPRWriterInterface(parameter: SGPRWriterParameter) extends Bundle {
+class SGPRIniterInterface(parameter: SGPRIniterParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val warp_cmd = Input(
@@ -30,9 +30,9 @@ class SGPRWriterInterface(parameter: SGPRWriterParameter) extends Bundle {
 }
 
 @instantiable
-class SGPRWriter(val parameter: SGPRWriterParameter)
-    extends FixedIORawModule(new SGPRWriterInterface(parameter))
-    with SerializableModule[SGPRWriterParameter]
+class SGPRIniter(val parameter: SGPRIniterParameter)
+    extends FixedIORawModule(new SGPRIniterInterface(parameter))
+    with SerializableModule[SGPRIniterParameter]
     with ImplicitClock
     with ImplicitReset
     with Public {
