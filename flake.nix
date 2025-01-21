@@ -4,7 +4,7 @@
 
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/master";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -18,12 +18,13 @@
         pkgs = import nixpkgs { inherit system; overlays = [ overlay ]; };
         deps = with pkgs; [
           git
-          openjdk
+          temurin-bin
           gnumake autoconf automake
           gcc
           mill
           dtc
-          verilator cmake ninja
+          verilator
+          cmake ninja
           gtkwave
           circt
         ];
