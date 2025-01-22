@@ -53,7 +53,7 @@ class JobDispatcher(val parameter: DispatcherParameter)
     grid_counter_y === (grid_y - 1.U) &&
     grid_counter_z === (grid_z - 1.U)
 
-  val grid_x_acc = (grid_counter_x === (grid_x - 1.U))
+  val grid_x_acc = (grid_counter_x =/= (grid_x - 1.U))
   val grid_y_acc = (grid_counter_x === (grid_x - 1.U)) & (grid_counter_y =/= (grid_y - 1.U))
   val grid_z_acc = (grid_counter_x === (grid_x - 1.U)) & (grid_counter_y === (grid_y - 1.U))
 
@@ -61,7 +61,7 @@ class JobDispatcher(val parameter: DispatcherParameter)
   val grid_rcounter_y = RegInit(0.U(32.W))
   val grid_rcounter_z = RegInit(0.U(32.W))
 
-  val grid_x_racc = (grid_rcounter_x === (grid_x - 1.U))
+  val grid_x_racc = (grid_rcounter_x =/= (grid_x - 1.U))
   val grid_y_racc = (grid_rcounter_x === (grid_x - 1.U)) & (grid_rcounter_y =/= (grid_y - 1.U))
   val grid_z_racc = (grid_rcounter_x === (grid_x - 1.U)) & (grid_rcounter_y === (grid_y - 1.U))
 
@@ -117,6 +117,8 @@ class JobDispatcher(val parameter: DispatcherParameter)
       when(io.task.fire) {
         when(grid_x_acc) {
           grid_counter_x := grid_counter_x + 1.U
+        }.otherwise {
+          grid_counter_x := 0.U
         }
 
         when(grid_y_acc) {
