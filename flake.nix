@@ -18,7 +18,7 @@
         pkgs = import nixpkgs { inherit system; overlays = [ overlay ]; };
         deps = with pkgs; [
           git
-          temurin-bin
+          jdk21
           gnumake autoconf automake
           gcc
           mill

@@ -2,47 +2,64 @@ package ogpu.dispatcher
 
 import chisel3._
 import chisel3.util._
+import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
+import chisel3.experimental.hierarchy.instantiable
 
-case class DispatcherParams() {
-  def buffer_num = 1
+case class DispatcherParameter(
+  useAsyncReset: Boolean,
+  clockGate:     Boolean,
+  bufferNum:     Int)
+    extends SerializableModuleParameter
+
+class DispatcherInterface(parameter: DispatcherParameter) extends Bundle {
+  val clock = Input(Clock())
+  val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val aql = Flipped(DecoupledIO(new AQLBundle))
+  val task = DecoupledIO(new WorkGroupTaskBundle)
+  val task_resp = Flipped(DecoupledIO(new WorkGroupTaskRespBundle))
 }
 
-class JobDispatcher(
-  params: DispatcherParams)
-    extends Module {
+@instantiable
+class JobDispatcher(val parameter: DispatcherParameter)
+    extends FixedIORawModule(new DispatcherInterface(parameter))
+    with SerializableModule[DispatcherParameter]
+    with ImplicitClock
+    with ImplicitReset {
 
-  val io = IO(new Bundle {
-    val aql = Flipped(DecoupledIO(new AQLBundle))
-    val task = DecoupledIO(new WorkGroupTaskBundle)
-    val task_resp = Flipped(DecoupledIO(new WorkGroupTaskRespBundle))
-  })
+  override protected def implicitClock: Clock = io.clock
+  override protected def implicitReset: Reset = io.reset
 
-  val s_idle :: s_working :: s_finish :: Nil = Enum(3)
-  val state = RegInit(s_idle)
+  object State extends ChiselEnum {
+    val Idle, Working, Finish = Value
+  }
+  import State._
 
-  io.aql.ready := state === s_idle
+  val state = RegInit(Idle)
+  val aql = RegInit(0.U.asTypeOf(new AQLBundle()))
 
-  val grid_x = RegInit(UInt(32.W))
-  val grid_y = RegInit(UInt(32.W))
-  val grid_z = RegInit(UInt(32.W))
-  val workgroup_x = RegInit(UInt(16.W))
-  val workgroup_y = RegInit(UInt(16.W))
-  val workgroup_z = RegInit(UInt(16.W))
-  val grid_counter_x = RegInit(UInt(32.W))
-  val grid_counter_y = RegInit(UInt(32.W))
-  val grid_counter_z = RegInit(UInt(32.W))
+  val grid_x = aql.grid_size_x
+  val grid_y = aql.grid_size_y
+  val grid_z = aql.grid_size_z
 
-  val taskDone = grid_counter_x === (grid_x - 1.U) &
-    grid_counter_y === (grid_y - 1.U) &
+  // Grid counters
+  val grid_counter = RegInit(VecInit(Seq.fill(3)(0.U(32.W))))
+  val grid_counter_x = grid_counter(0)
+  val grid_counter_y = grid_counter(1)
+  val grid_counter_z = grid_counter(2)
+
+  io.aql.ready := state === Idle
+
+  val taskDone = grid_counter_x === (grid_x - 1.U) &&
+    grid_counter_y === (grid_y - 1.U) &&
     grid_counter_z === (grid_z - 1.U)
 
   val grid_x_acc = (grid_counter_x === (grid_x - 1.U))
   val grid_y_acc = (grid_counter_x === (grid_x - 1.U)) & (grid_counter_y =/= (grid_y - 1.U))
   val grid_z_acc = (grid_counter_x === (grid_x - 1.U)) & (grid_counter_y === (grid_y - 1.U))
 
-  val grid_rcounter_x = RegInit(UInt(32.W))
-  val grid_rcounter_y = RegInit(UInt(32.W))
-  val grid_rcounter_z = RegInit(UInt(32.W))
+  val grid_rcounter_x = RegInit(0.U(32.W))
+  val grid_rcounter_y = RegInit(0.U(32.W))
+  val grid_rcounter_z = RegInit(0.U(32.W))
 
   val grid_x_racc = (grid_rcounter_x === (grid_x - 1.U))
   val grid_y_racc = (grid_rcounter_x === (grid_x - 1.U)) & (grid_rcounter_y =/= (grid_y - 1.U))
@@ -52,88 +69,66 @@ class JobDispatcher(
     grid_rcounter_y === (grid_y - 1.U) &
     grid_rcounter_z === (grid_z - 1.U)
 
+  val s_rec_idle :: s_rec_working :: s_rec_finish :: Nil = Enum(3)
+  val state_rec = RegInit(s_rec_idle)
+
   // state transition
   switch(state) {
-    is(s_idle) {
+    is(Idle) {
       when(io.aql.fire) {
-        state := s_working
+        state := Working
       }
     }
-    is(s_working) {
+    is(Working) {
       when(taskDone & io.task.fire) {
-        state := s_finish
+        state := Finish
       }
     }
-    is(s_finish) {
+    is(Finish) {
       when(state_rec === s_rec_finish) {
-        state := s_idle
+        state := Idle
       }
     }
   }
 
+  io.task.valid := state === Working
+  io.task.bits.workgroup_size_x := aql.workgroup_size_x
+  io.task.bits.workgroup_size_y := aql.workgroup_size_y
+  io.task.bits.workgroup_size_z := aql.workgroup_size_z
+  io.task.bits.grid_id_x := grid_counter_x
+  io.task.bits.grid_id_y := grid_counter_y
+  io.task.bits.grid_id_z := grid_counter_z
+  io.task.bits.private_segment_size := aql.private_segment_size
+  io.task.bits.group_segment_size := aql.group_segment_size
+  io.task.bits.kernel_object := aql.kernel_object
+  io.task.bits.kernargs_address := aql.kernargs_address
+
   // state action
   switch(state) {
-    is(s_idle) {
+    is(Idle) {
+      grid_counter_x := 0.U
+      grid_counter_y := 0.U
+      grid_counter_z := 0.U
       when(io.aql.fire) {
-        grid_x := io.aql.bits.grid_size_x
-        grid_y := io.aql.bits.grid_size_y
-        grid_z := io.aql.bits.grid_size_z
-        workgroup_x := io.aql.bits.workgroup_size_x
-        workgroup_y := io.aql.bits.workgroup_size_y
-        workgroup_z := io.aql.bits.workgroup_size_z
-        grid_counter_x := 0.U
-        grid_counter_y := 0.U
-        grid_counter_z := 0.U
-        io.task.valid := true.B
-        io.task.bits.workgroup_size_x := io.aql.bits.workgroup_size_x
-        io.task.bits.workgroup_size_y := io.aql.bits.workgroup_size_y
-        io.task.bits.workgroup_size_z := io.aql.bits.workgroup_size_z
-        // io.task.bits.grid_size_x := io.aql.bits.grid_size_x
-        // io.task.bits.grid_size_y := io.aql.bits.grid_size_y
-        // io.task.bits.grid_size_z := io.aql.bits.grid_size_z
-        io.task.bits.grid_id_x := 0.U
-        io.task.bits.grid_id_y := 0.U
-        io.task.bits.grid_id_z := 0.U
+        aql := io.aql.bits
       }
     }
-    is(s_working) {
-      io.task.bits.workgroup_size_x := workgroup_x
-      io.task.bits.workgroup_size_y := workgroup_y
-      io.task.bits.workgroup_size_z := workgroup_z
-      // io.task.bits.grid_size_x := grid_x
-      // io.task.bits.grid_size_y := grid_y
-      // io.task.bits.grid_size_z := grid_z
-      io.task.bits.grid_id_x := grid_counter_x
-      io.task.bits.grid_id_y := grid_counter_y
-      io.task.bits.grid_id_z := grid_counter_z
+    is(Working) {
       when(io.task.fire) {
         when(grid_x_acc) {
           grid_counter_x := grid_counter_x + 1.U
-        }.otherwise {
-          grid_counter_x := 0.U
         }
 
         when(grid_y_acc) {
           grid_counter_y := grid_counter_y + 1.U
-        }.otherwise {
-          grid_counter_y := 0.U
         }
 
         when(grid_z_acc) {
           grid_counter_z := grid_counter_z + 1.U
-        }.otherwise {
-          grid_counter_z := 0.U
         }
-      }
-
-      when(taskDone & io.task.fire) {
-        io.task.valid := false.B
       }
     }
   }
-
-  val s_rec_idle :: s_rec_working :: s_rec_finish :: Nil = Enum(3)
-  val state_rec = RegInit(s_rec_idle)
 
   io.task_resp.ready := state_rec === s_rec_working
 
@@ -163,20 +158,14 @@ class JobDispatcher(
       when(io.task_resp.fire) {
         when(grid_x_racc) {
           grid_rcounter_x := grid_rcounter_x + 1.U
-        }.otherwise {
-          grid_rcounter_x := 0.U
         }
 
         when(grid_y_racc) {
           grid_rcounter_y := grid_rcounter_y + 1.U
-        }.otherwise {
-          grid_rcounter_y := 0.U
         }
 
         when(grid_z_racc) {
           grid_rcounter_z := grid_rcounter_z + 1.U
-        }.otherwise {
-          grid_rcounter_z := 0.U
         }
       }
       when(recDone & io.task_resp.fire) {

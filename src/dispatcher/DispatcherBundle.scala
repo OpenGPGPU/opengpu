@@ -13,7 +13,7 @@ class AQLBundle() extends Bundle {
   val grid_size_x = UInt(32.W)
   val grid_size_y = UInt(32.W)
   val grid_size_z = UInt(32.W)
-  val private_sgement_size = UInt(32.W)
+  val private_segment_size = UInt(32.W)
   val group_segment_size = UInt(32.W)
   val kernel_object = UInt(64.W)
   val kernargs_address = UInt(64.W)
@@ -30,7 +30,7 @@ class WorkGroupTaskBundle() extends Bundle {
   val grid_id_x = UInt(32.W)
   val grid_id_y = UInt(32.W)
   val grid_id_z = UInt(32.W)
-  val private_sgement_size = UInt(32.W)
+  val private_segment_size = UInt(32.W)
   val group_segment_size = UInt(32.W)
   val kernel_object = UInt(64.W)
 
