@@ -2,19 +2,11 @@
 // SPDX-FileCopyrightText: 2022 Jiuyang Liu <liu@jiuyang.me>
 // SPDX-FileCopyrightText: 2024 DonaldDuck <vivazsj@gmail.com>
 
-// import mill._
-// import scalalib._
-// import scalalib.scalafmt._
-// import mill.scalalib.TestModule.ScalaTest
 import mill._
 import mill.scalalib._
 import mill.scalalib.publish._
 import mill.scalalib.scalafmt._
 
-// import mill.scalalib._
-// import mill.define.{Command, TaskModule}
-// import mill.scalalib.publish._
-// import mill.scalalib.scalafmt._
 import mill.util.Jvm
 import coursier.maven.MavenRepository
 import $file.depends.chisel.build
@@ -277,10 +269,10 @@ trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule with SbtModul
     //override def forkArgs = Seq("-Xmx6G", "-Xss256m")
 
     override def sources = T.sources {
-      super.sources() ++ Seq(PathRef(this.millSourcePath / "test"))
+      super.sources() ++ Seq(PathRef(this.millSourcePath / "tests"))
     }
     override def ivyDeps = super.ivyDeps() ++ Agg(
-      ivy"org.scalatest::scalatest:3.2.17"
+      ivy"org.scalatest::scalatest:3.2.19"
     )
   }
 }
