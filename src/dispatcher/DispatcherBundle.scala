@@ -24,9 +24,9 @@ class WorkGroupTaskBundle() extends Bundle {
   val workgroup_size_x = UInt(16.W)
   val workgroup_size_y = UInt(16.W)
   val workgroup_size_z = UInt(16.W)
-  // val grid_size_x = UInt(32.W)
-  // val grid_size_y = UInt(32.W)
-  // val grid_size_z = UInt(32.W)
+  val grid_size_x = UInt(32.W)
+  val grid_size_y = UInt(32.W)
+  val grid_size_z = UInt(32.W)
   val grid_id_x = UInt(32.W)
   val grid_id_y = UInt(32.W)
   val grid_id_z = UInt(32.W)
@@ -38,5 +38,28 @@ class WorkGroupTaskBundle() extends Bundle {
 }
 
 class WorkGroupTaskRespBundle() extends Bundle {
+  val finish = Bool()
+}
+
+class WarpTaskBundle() extends Bundle {
+  val workgroup_size_x = UInt(16.W)
+  val workgroup_size_y = UInt(16.W)
+  val workgroup_size_z = UInt(16.W)
+  val workgroup_id_x = UInt(16.W)
+  val workgroup_id_y = UInt(16.W)
+  val workgroup_id_z = UInt(16.W)
+  val grid_size_x = UInt(32.W)
+  val grid_size_y = UInt(32.W)
+  val grid_size_z = UInt(32.W)
+  val grid_id_x = UInt(32.W)
+  val grid_id_y = UInt(32.W)
+  val grid_id_z = UInt(32.W)
+  val private_segment_size = UInt(32.W)
+  val group_segment_size = UInt(32.W)
+  val kernel_object = UInt(64.W)
+  val kernargs_address = UInt(64.W)
+}
+
+class WarpTaskRespBundle() extends Bundle {
   val finish = Bool()
 }

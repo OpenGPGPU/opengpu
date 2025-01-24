@@ -95,6 +95,9 @@ class JobDispatcher(val parameter: DispatcherParameter)
   io.task.bits.workgroup_size_x := aql.workgroup_size_x
   io.task.bits.workgroup_size_y := aql.workgroup_size_y
   io.task.bits.workgroup_size_z := aql.workgroup_size_z
+  io.task.bits.grid_size_x := aql.grid_size_x
+  io.task.bits.grid_size_y := aql.grid_size_y
+  io.task.bits.grid_size_z := aql.grid_size_z
   io.task.bits.grid_id_x := grid_counter_x
   io.task.bits.grid_id_y := grid_counter_y
   io.task.bits.grid_id_z := grid_counter_z
