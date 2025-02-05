@@ -14,7 +14,7 @@ case class DispatcherParameter(
 class DispatcherInterface(parameter: DispatcherParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
-  val aql = Flipped(DecoupledIO(new AQLBundle))
+  val queue = Flipped(DecoupledIO(new QueueBundle))
   val task = DecoupledIO(new WorkGroupTaskBundle)
   val task_resp = Flipped(DecoupledIO(new WorkGroupTaskRespBundle))
 }
@@ -35,11 +35,11 @@ class JobDispatcher(val parameter: DispatcherParameter)
   import State._
 
   val state = RegInit(Idle)
-  val aql = RegInit(0.U.asTypeOf(new AQLBundle()))
+  val queue = RegInit(0.U.asTypeOf(new QueueBundle()))
 
-  val grid_x = aql.grid_size_x
-  val grid_y = aql.grid_size_y
-  val grid_z = aql.grid_size_z
+  val grid_x = queue.grid_size_x
+  val grid_y = queue.grid_size_y
+  val grid_z = queue.grid_size_z
 
   // Grid counters
   val grid_counter = RegInit(VecInit(Seq.fill(3)(0.U(32.W))))
@@ -47,7 +47,7 @@ class JobDispatcher(val parameter: DispatcherParameter)
   val grid_counter_y = grid_counter(1)
   val grid_counter_z = grid_counter(2)
 
-  io.aql.ready := state === Idle
+  io.queue.ready := state === Idle
 
   val taskDone = grid_counter_x === (grid_x - 1.U) &&
     grid_counter_y === (grid_y - 1.U) &&
@@ -75,7 +75,7 @@ class JobDispatcher(val parameter: DispatcherParameter)
   // state transition
   switch(state) {
     is(Idle) {
-      when(io.aql.fire) {
+      when(io.queue.fire) {
         state := Working
       }
     }
@@ -92,19 +92,19 @@ class JobDispatcher(val parameter: DispatcherParameter)
   }
 
   io.task.valid := state === Working
-  io.task.bits.workgroup_size_x := aql.workgroup_size_x
-  io.task.bits.workgroup_size_y := aql.workgroup_size_y
-  io.task.bits.workgroup_size_z := aql.workgroup_size_z
-  io.task.bits.grid_size_x := aql.grid_size_x
-  io.task.bits.grid_size_y := aql.grid_size_y
-  io.task.bits.grid_size_z := aql.grid_size_z
+  io.task.bits.workgroup_size_x := queue.workgroup_size_x
+  io.task.bits.workgroup_size_y := queue.workgroup_size_y
+  io.task.bits.workgroup_size_z := queue.workgroup_size_z
+  io.task.bits.grid_size_x := queue.grid_size_x
+  io.task.bits.grid_size_y := queue.grid_size_y
+  io.task.bits.grid_size_z := queue.grid_size_z
   io.task.bits.grid_id_x := grid_counter_x
   io.task.bits.grid_id_y := grid_counter_y
   io.task.bits.grid_id_z := grid_counter_z
-  io.task.bits.private_segment_size := aql.private_segment_size
-  io.task.bits.group_segment_size := aql.group_segment_size
-  io.task.bits.kernel_object := aql.kernel_object
-  io.task.bits.kernargs_address := aql.kernargs_address
+  io.task.bits.private_segment_size := queue.private_segment_size
+  io.task.bits.group_segment_size := queue.group_segment_size
+  io.task.bits.kernel_object := queue.kernel_object
+  io.task.bits.kernargs_address := queue.kernargs_address
 
   // state action
   switch(state) {
@@ -112,8 +112,8 @@ class JobDispatcher(val parameter: DispatcherParameter)
       grid_counter_x := 0.U
       grid_counter_y := 0.U
       grid_counter_z := 0.U
-      when(io.aql.fire) {
-        aql := io.aql.bits
+      when(io.queue.fire) {
+        queue := io.queue.bits
       }
     }
     is(Working) {

@@ -2,7 +2,7 @@ package ogpu.dispatcher
 
 import chisel3._
 
-class AQLBundle() extends Bundle {
+class QueueBundle() extends Bundle {
   val header = UInt(16.W)
   val dimensions = UInt(2.W)
   val reserved1 = UInt(14.W)
@@ -18,6 +18,10 @@ class AQLBundle() extends Bundle {
   val kernel_object = UInt(64.W)
   val kernargs_address = UInt(64.W)
   val completion_signal = UInt(64.W)
+}
+
+class QueueRespBundle() extends Bundle {
+  val finish = Bool()
 }
 
 class WorkGroupTaskBundle() extends Bundle {
