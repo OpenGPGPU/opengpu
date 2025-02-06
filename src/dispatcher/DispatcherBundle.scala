@@ -62,6 +62,8 @@ class WarpTaskBundle() extends Bundle {
   val group_segment_size = UInt(32.W)
   val kernel_object = UInt(64.W)
   val kernargs_address = UInt(64.W)
+  val first_warp = Bool()
+  val last_warp = Bool()
 }
 
 class WarpTaskRespBundle() extends Bundle {
