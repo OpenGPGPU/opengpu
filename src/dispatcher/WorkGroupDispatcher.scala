@@ -127,6 +127,8 @@ class WorkGroupDispatcher(val parameter: WorkGroupDispatcherParameter)
   io.warp_task.bits.workgroup_id_x := workgroup_counter_x
   io.warp_task.bits.workgroup_id_y := workgroup_counter_y
   io.warp_task.bits.workgroup_id_z := workgroup_counter_z
+  io.warp_task.bits.first_warp := workgroup_counter_x === 0.U & workgroup_counter_y === 0.U & workgroup_counter_z === 0.U
+  io.warp_task.bits.last_warp := taskDone
 
   io.warp_task_resp.ready := state =/= Idle
 
