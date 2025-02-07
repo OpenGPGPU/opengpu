@@ -86,6 +86,11 @@ class WorkgroupCUInterconnector(val parameter: WorkgroupCUParameter)
     }
   }
 
+  // DefaultV response ports to inactive
+  io.cu_resp.foreach(_.ready := false.B)
+  io.wg_resp.foreach(_.valid := false.B)
+  io.wg_resp.foreach(_.bits.finish := false.B)
+
   // Route responses back
   for (cuIdx <- 0 until parameter.numCUPorts) {
     when(cuPortBusy(cuIdx)) {
@@ -96,8 +101,10 @@ class WorkgroupCUInterconnector(val parameter: WorkgroupCUParameter)
         io.wg_resp(wgIdx).valid := true.B
         io.wg_resp(wgIdx).bits := io.cu_resp(cuIdx).bits
 
-        when(io.cu_resp(cuIdx).fire && !wgActive(wgIdx)) {
+        when(io.cu_resp(cuIdx).fire) {
           cuPortBusy(cuIdx) := false.B
+        }
+        when(io.cu_resp(cuIdx).fire && !wgActive(wgIdx)) {
           wgAssigned(wgIdx) := false.B // Clear assignment after response
         }
       }
