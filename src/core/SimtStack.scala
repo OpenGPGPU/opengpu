@@ -64,7 +64,7 @@ class SimtStack(val parameter: SimtStackParameter)
   val stack_pop_addr = stack_addr - 1.U
 
   // maybe ecc is needed for sram
-  val stack_sram = SRAM(
+  val stack_sram: SRAMInterface[UInt] = SRAM(
     size = stackDepth,
     tpe = UInt((io.stack_out.getWidth).W),
     numReadPorts = 0,
