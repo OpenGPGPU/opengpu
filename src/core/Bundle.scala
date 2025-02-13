@@ -114,3 +114,405 @@ class CommitVData(
   val rd = UInt(regIDWidth.W) // Destination register ID
   val data = Vec(threadNum, UInt(xLen.W)) // Data to be written
 }
+
+// TODO: make it Enum
+object PRV {
+  val SZ = 2
+  val U = 0
+  val S = 1
+  val H = 2
+  val M = 3
+}
+
+class MStatus extends Bundle {
+  // not truly part of mstatus, but convenient
+  val debug = Bool()
+  val cease = Bool()
+  val wfi = Bool()
+  val isa = UInt(32.W)
+
+  val dprv = UInt(PRV.SZ.W) // effective prv for data accesses
+  val dv = Bool() // effective v for data accesses
+  val prv = UInt(PRV.SZ.W)
+  val v = Bool()
+
+  val sd = Bool()
+  val zero2 = UInt(23.W)
+  val mpv = Bool()
+  val gva = Bool()
+  val mbe = Bool()
+  val sbe = Bool()
+  val sxl = UInt(2.W)
+  val uxl = UInt(2.W)
+  val sd_rv32 = Bool()
+  val zero1 = UInt(8.W)
+  val tsr = Bool()
+  val tw = Bool()
+  val tvm = Bool()
+  val mxr = Bool()
+  val sum = Bool()
+  val mprv = Bool()
+  val xs = UInt(2.W)
+  val fs = UInt(2.W)
+  val mpp = UInt(2.W)
+  val vs = UInt(2.W)
+  val spp = UInt(1.W)
+  val mpie = Bool()
+  val ube = Bool()
+  val spie = Bool()
+  val upie = Bool()
+  val mie = Bool()
+  val hie = Bool()
+  val sie = Bool()
+  val uie = Bool()
+}
+
+class SFenceReq(vaddrBits: Int, asidBits: Int) extends Bundle {
+  val rs1 = Bool()
+  val rs2 = Bool()
+  val addr = UInt(vaddrBits.W)
+  val asid = UInt(asidBits.W)
+}
+
+/** IO between TLB and PTW
+  *
+  * PTW receives :
+  *   - PTE request
+  *   - CSRs info
+  *   - pmp results from PMP(in TLB)
+  */
+class TLBPTWIO(
+  vpnBits:      Int,
+  paddrBits:    Int,
+  vaddrBits:    Int,
+  pgLevels:     Int,
+  xLen:         Int,
+  maxPAddrBits: Int,
+  pgIdxBits:    Int)
+    extends Bundle {
+  val req = Decoupled(Valid(new PTWReq(vpnBits)))
+  val resp = Flipped(Valid(new PTWResp(vaddrBits, pgLevels)))
+  val ptbr = Input(new PTBR(xLen, maxPAddrBits, pgIdxBits))
+  val status = Input(new MStatus)
+}
+
+class TLBReq(lgMaxSize: Int, vaddrBitsExtended: Int)() extends Bundle {
+  // TODO: remove it.
+  val M_SZ = 5
+
+  /** request address from CPU. */
+  val vaddr = UInt(vaddrBitsExtended.W)
+
+  /** don't lookup TLB, bypass vaddr as paddr */
+  val passthrough = Bool()
+
+  /** granularity */
+  val size = UInt(log2Ceil(lgMaxSize + 1).W)
+
+  /** memory command. */
+  val cmd = UInt(M_SZ.W)
+}
+
+class TLBResp(paddrBits: Int, vaddrBitsExtended: Int) extends Bundle {
+  // lookup responses
+  val miss = Bool()
+
+  /** physical address */
+  val paddr = UInt(paddrBits.W)
+
+  /** page fault exception */
+  val pf = new TLBExceptions
+
+  /** access exception */
+  val ae = new TLBExceptions
+
+  /** misaligned access exception */
+  val ma = new TLBExceptions
+
+  /** if this address is cacheable */
+  val cacheable = Bool()
+
+  /** if caches must allocate this address */
+  val must_alloc = Bool()
+
+  /** if this address is prefetchable for caches */
+  val prefetchable = Bool()
+}
+
+class TLBExceptions extends Bundle {
+  val ld = Bool()
+  val st = Bool()
+  val inst = Bool()
+}
+
+object TLBEntry {
+
+  /** returns all entry data in this entry */
+  def entry_data(tlbEntry: TLBEntry) = tlbEntry.data.map(_.asTypeOf(new TLBEntryData(tlbEntry.ppnBits)))
+
+  /** returns the index of sector */
+  private def sectorIdx(tlbEntry: TLBEntry, vpn: UInt) = vpn(log2Ceil(tlbEntry.nSectors) - 1, 0)
+
+  /** returns the entry data matched with this vpn */
+  def getData(tlbEntry: TLBEntry, vpn: UInt) =
+    tlbEntry.data(sectorIdx(tlbEntry, vpn)).asTypeOf(new TLBEntryData(tlbEntry.ppnBits))
+
+  /** returns whether a sector hits */
+  def sectorHit(tlbEntry: TLBEntry, vpn: UInt) =
+    tlbEntry.valid.asUInt.orR && sectorTagMatch(tlbEntry, vpn)
+
+  /** returns whether tag matches vpn */
+  def sectorTagMatch(tlbEntry: TLBEntry, vpn: UInt) =
+    (((tlbEntry.tag_vpn ^ vpn) >> log2Ceil(tlbEntry.nSectors)) === 0.U)
+
+  /** returns hit signal */
+  def hit(
+    tlbEntry:                TLBEntry,
+    vpn:                     UInt,
+    usingVM:                 Boolean,
+    pgLevelBits:             Int,
+    hypervisorExtraAddrBits: Int,
+    superpage:               Boolean,
+    superpageOnly:           Boolean
+  ): Bool = {
+    if (superpage && usingVM) {
+      var tagMatch = tlbEntry.valid.head
+      for (j <- 0 until tlbEntry.pgLevels) {
+        val base = (tlbEntry.pgLevels - 1 - j) * pgLevelBits
+        val n = pgLevelBits + (if (j == 0) hypervisorExtraAddrBits else 0)
+        val ignore = tlbEntry.level < j.U || (superpageOnly && (j == (tlbEntry.pgLevels - 1))).B
+        tagMatch = tagMatch && (ignore || (tlbEntry.tag_vpn ^ vpn)(base + n - 1, base) === 0.U)
+      }
+      tagMatch
+    } else {
+      val idx = sectorIdx(tlbEntry, vpn)
+      tlbEntry.valid(idx) && sectorTagMatch(tlbEntry, vpn)
+    }
+  }
+
+  /** returns the ppn of the input TLBEntryData */
+  def ppn(
+    tlbEntry:      TLBEntry,
+    vpn:           UInt,
+    data:          TLBEntryData,
+    usingVM:       Boolean,
+    pgLevelBits:   Int,
+    superpage:     Boolean,
+    superpageOnly: Boolean
+  ) = {
+    val supervisorVPNBits = tlbEntry.pgLevels * pgLevelBits
+    if (superpage && usingVM) {
+      var res = data.ppn >> pgLevelBits * (tlbEntry.pgLevels - 1)
+      for (j <- 1 until tlbEntry.pgLevels) {
+        val ignore = tlbEntry.level < j.U || (superpageOnly && j == tlbEntry.pgLevels - 1).B
+        res = Cat(
+          res,
+          (Mux(ignore, vpn, 0.U) | data.ppn)(
+            supervisorVPNBits - j * pgLevelBits - 1,
+            supervisorVPNBits - (j + 1) * pgLevelBits
+          )
+        )
+      }
+      res
+    } else {
+      data.ppn
+    }
+  }
+
+  /** does the refill
+    *
+    * find the target entry with vpn tag and replace the target entry with the input entry data
+    */
+  def insert(tlbEntry: TLBEntry, vpn: UInt, level: UInt, entry: TLBEntryData, superpageOnly: Boolean): Unit = {
+    tlbEntry.tag_vpn := vpn
+    tlbEntry.level := level(log2Ceil(tlbEntry.pgLevels - (if (superpageOnly) 1 else 0)) - 1, 0)
+
+    val idx = sectorIdx(tlbEntry, vpn)
+    tlbEntry.valid(idx) := true.B
+    tlbEntry.data(idx) := entry.asUInt
+  }
+
+  def invalidate(tlbEntry: TLBEntry): Unit = { tlbEntry.valid.foreach(_ := false.B) }
+  def invalidateVPN(
+    tlbEntry:                TLBEntry,
+    vpn:                     UInt,
+    usingVM:                 Boolean,
+    pgLevelBits:             Int,
+    hypervisorExtraAddrBits: Int,
+    superpage:               Boolean,
+    superpageOnly:           Boolean
+  ): Unit = {
+    if (superpage) {
+      when(hit(tlbEntry, vpn, usingVM, pgLevelBits, hypervisorExtraAddrBits, superpage, superpageOnly)) {
+        invalidate(tlbEntry)
+      }
+    } else {
+      when(sectorTagMatch(tlbEntry, vpn)) {
+        for (((v, e), i) <- (tlbEntry.valid.zip(entry_data(tlbEntry))).zipWithIndex)
+          when(i.U === sectorIdx(tlbEntry, vpn)) { v := false.B }
+      }
+    }
+    // For fragmented superpage mappings, we assume the worst (largest)
+    // case, and zap entries whose most-significant VPNs match
+    when(((tlbEntry.tag_vpn ^ vpn) >> (pgLevelBits * (tlbEntry.pgLevels - 1))) === 0.U) {
+      for ((v, e) <- tlbEntry.valid.zip(entry_data(tlbEntry)))
+        when(e.fragmented_superpage) { v := false.B }
+    }
+  }
+  def invalidateNonGlobal(tlbEntry: TLBEntry): Unit = {
+    for ((v, e) <- tlbEntry.valid.zip(entry_data(tlbEntry)))
+      when(!e.g) { v := false.B }
+  }
+}
+
+class TLBEntry(val nSectors: Int, val pgLevels: Int, vpnBits: Int, val ppnBits: Int) extends Bundle {
+  val level = UInt(log2Ceil(pgLevels).W)
+  val tag_vpn = UInt(vpnBits.W)
+  val data = Vec(nSectors, UInt(new TLBEntryData(ppnBits).getWidth.W))
+  val valid = Vec(nSectors, Bool())
+}
+
+class TLBEntryData(ppnBits: Int) extends Bundle {
+  val ppn = UInt(ppnBits.W)
+
+  /** access exception. D$ -> PTW -> TLB AE Alignment failed.
+    */
+  val ae_ptw = Bool()
+  val ae_final = Bool()
+  val ae_stage2 = Bool()
+
+  /** pte.g global */
+  val g = Bool()
+  val pf = Bool() // page fault
+  val pw = Bool() // write permission
+  val px = Bool() // execute permission
+  val pr = Bool() // read permission
+  val c = Bool() // cacheable
+  /** PutPartial */
+  val ppp = Bool()
+
+  /** AMO logical */
+  val pal = Bool()
+
+  /** AMO arithmetic */
+  val paa = Bool()
+
+  /** get/put effects */
+  val eff = Bool()
+
+  /** fragmented_superpage support */
+  val fragmented_superpage = Bool()
+}
+
+class PTWReq(vpnBits: Int) extends Bundle {
+  val addr = UInt(vpnBits.W)
+  val stage2 = Bool()
+}
+
+/** PTE info from L2TLB to TLB
+  *
+  * containing: target PTE, exceptions, two-satge tanslation info
+  */
+class PTWResp(vaddrBits: Int, pgLevels: Int) extends Bundle {
+
+  /** ptw access exception */
+  val ae_ptw = Bool()
+
+  /** final access exception */
+  val ae_final = Bool()
+
+  /** page fault */
+  val pf = Bool()
+
+  /** PTE to refill L1TLB
+    *
+    * source: L2TLB
+    */
+  val pte = new PTE
+
+  /** pte pglevel */
+  val level = UInt(log2Ceil(pgLevels).W)
+
+  /** fragmented_superpage support */
+  val fragmented_superpage = Bool()
+
+  /** homogeneous for both pma and pmp */
+  val homogeneous = Bool()
+}
+
+object PTE {
+
+  /** return true if find a pointer to next level page table */
+  def table(pte: PTE) =
+    pte.v && !pte.r && !pte.w && !pte.x && !pte.d && !pte.a && !pte.u && pte.reserved_for_future === 0.U
+
+  /** return true if find a leaf PTE */
+  def leaf(pte: PTE) = pte.v && (pte.r || (pte.x && !pte.w)) && pte.a
+
+  /** user read */
+  def ur(pte: PTE) = leaf(pte) && pte.r
+
+  /** user write */
+  def uw(pte: PTE) = leaf(pte) && pte.w && pte.d
+
+  /** user execute */
+  def ux(pte: PTE) = leaf(pte) && pte.x
+
+  /** full permission: writable and executable in user mode */
+  def isFullPerm(pte: PTE) = uw(pte) && ux(pte)
+}
+
+/** PTE template for transmission
+  *
+  * contains useful methods to check PTE attributes
+  * @see
+  *   RV-priv spec 4.3.1 for pgae table entry format
+  */
+class PTE extends Bundle {
+  val reserved_for_future = UInt(10.W)
+  val ppn = UInt(44.W)
+  val reserved_for_software = UInt(2.W)
+
+  /** dirty bit */
+  val d = Bool()
+
+  /** access bit */
+  val a = Bool()
+
+  /** global mapping */
+  val g = Bool()
+
+  /** user mode accessible */
+  val u = Bool()
+
+  /** whether the page is executable */
+  val x = Bool()
+
+  /** whether the page is writable */
+  val w = Bool()
+
+  /** whether the page is readable */
+  val r = Bool()
+
+  /** valid bit */
+  val v = Bool()
+}
+
+object PTBR {
+  def additionalPgLevels(ptbr: PTBR, pgLevels: Int, minPgLevels: Int) =
+    ptbr.mode(log2Ceil(pgLevels - minPgLevels + 1) - 1, 0)
+  def modeBits(xLen: Int) = xLen match {
+    case 32 => 1
+    case 64 => 4
+  }
+  def maxASIdBits(xLen: Int) = xLen match {
+    case 32 => 9
+    case 64 => 16
+  }
+}
+
+class PTBR(xLen: Int, maxPAddrBits: Int, pgIdxBits: Int) extends Bundle {
+  val mode: UInt = UInt(PTBR.modeBits(xLen).W)
+  val asid = UInt(PTBR.maxASIdBits(xLen).W)
+  val ppn = UInt((maxPAddrBits - pgIdxBits).W)
+}

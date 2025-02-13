@@ -80,7 +80,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - uses: cachix/install-nix-action@v19
+      - name: Setup Nix
+        uses: cachix/install-nix-action@v19
         with:
           install_url: https://releases.nixos.org/nix/nix-2.13.3/install
           nix_path: nixpkgs=channel:nixos-unstable
