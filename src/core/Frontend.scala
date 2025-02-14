@@ -13,22 +13,11 @@ import chisel3.util.circt.ClockGate
 import chisel3.util.experimental.BitSet
 import org.chipsalliance.amba.axi4.bundle.{AXI4BundleParameter, AXI4ROIrrevocable, AXI4RWIrrevocable}
 import org.chipsalliance.rocketv.{
-  BHTParameter,
-  BHTResp,
-  BTB,
-  BTBParameter,
-  BTBResp,
-  CFIType,
   FetchQueue,
   FetchQueueParameter,
   FrontendBundle,
-  ICache,
-  ICacheParameter,
   ImmGen,
-  PMACheckerParameter,
   RVCDecoder,
-  TLB,
-  TLBParameter
 }
 
 object FrontendParameter {
@@ -120,18 +109,6 @@ case class FrontendParameter(
   def fetchBytes: Int = 4
   val coreInstBytes = (if (usingCompressed) 16 else 32) / 8
   def resetVectorBits: Int = paddrBits
-  def pmaCheckerParameter: PMACheckerParameter = PMACheckerParameter(
-    paddrBits = paddrBits,
-    legal = legal,
-    cacheable = cacheable,
-    read = read,
-    write = write,
-    putPartial = putPartial,
-    logic = logic,
-    arithmetic = arithmetic,
-    exec = exec,
-    sideEffects = sideEffects
-  )
   val rowBits: Int = fetchBytes * 8
   val instructionFetchParameter: AXI4BundleParameter = AXI4BundleParameter(
     idWidth = 1,
@@ -178,14 +155,11 @@ case class FrontendParameter(
     nSuperpageEntries = itlbNSuperpageEntries,
     asidBits = asidBits,
     pgLevels = pgLevels,
-    usingHypervisor = usingHypervisor,
     usingAtomics = usingAtomics,
     usingDataScratchpad = usingDataScratchpad,
     usingAtomicsOnlyForIO = usingAtomicsOnlyForIO,
     usingVM = usingVM,
     usingAtomicsInCache = usingAtomicsInCache,
-    nPMPs = nPMPs,
-    pmaCheckerParameter = pmaCheckerParameter,
     paddrBits = paddrBits,
     isITLB = true
   )
@@ -249,17 +223,8 @@ class FrontendInterface(parameter: FrontendParameter) extends Bundle {
     org.chipsalliance.amba.axi4.bundle.AXI4ROIrrevocable(parameter.instructionFetchParameter)
   val itimAXI: Option[AXI4RWIrrevocable] =
     parameter.itimParameter.map(p => Flipped(org.chipsalliance.amba.axi4.bundle.AXI4RWIrrevocable(p)))
-  val om: Property[ClassType] = Output(Property[AnyClassType]())
 }
 
-@instantiable
-class FrontendOM extends Class {
-  @public
-  val icache = IO(Output(Property[AnyClassType]()))
-  @public
-  val icacheIn = IO(Input(Property[AnyClassType]()))
-  icache := icacheIn
-}
 @instantiable
 class Frontend(val parameter: FrontendParameter)
     extends FixedIORawModule(new FrontendInterface(parameter))
@@ -269,8 +234,6 @@ class Frontend(val parameter: FrontendParameter)
     with ImplicitReset {
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
-  val omInstance:                       Instance[FrontendOM] = Instantiate(new FrontendOM)
-  io.om := omInstance.getPropertyReference.asAnyClassType
 
   def xLen = parameter.xLen
   def fetchWidth = parameter.fetchWidth
@@ -322,16 +285,15 @@ class Frontend(val parameter: FrontendParameter)
     else ClockGate(clock, clock_en)
 
   val icache = Instantiate(new ICache(parameter.icacheParameter))
-  omInstance.icacheIn := Property(icache.io.om.asAnyClassType)
 
   icache.io.clock := gated_clock
   icache.io.reset := io.reset
   icache.io.clock_enabled := clock_en
   (icache.io.itimAXI.zip(io.itimAXI)).foreach { case (frontend, itim) => itim :<>= frontend }
   io.instructionFetchAXI :<>= icache.io.instructionFetchAXI
-  // val tlb = Instantiate(new TLB(parameter.tlbParameter))
-  // tlb.io.clock := gated_clock
-  // tlb.io.reset := io.reset
+  val tlb = Instantiate(new TLB(parameter.tlbParameter))
+  tlb.io.clock := gated_clock
+  tlb.io.reset := io.reset
   // io.nonDiplomatic.ptw :<>= tlb.io.ptw
   // io.nonDiplomatic.cpu.clock_enabled := clock_en
   // val btb = parameter.btbParameter.map(btbParameter => Instantiate(new BTB(btbParameter)))

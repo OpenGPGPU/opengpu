@@ -8,7 +8,7 @@ import chisel3._
 import chisel3.experimental.hierarchy.{instantiable, Instance, Instantiate}
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import chisel3.util.{log2Ceil, Cat, Decoupled, Enum, Fill, Mux1H, OHToUInt, PopCount, PriorityEncoder, UIntToOH, Valid}
-import org.chipsalliance.rocketv.{PseudoLRU, SetAssocLRU}
+import org.chipsalliance.rocketv.{PseudoLRU, SetAssocLRU, PopCountAtLeast}
 object TLBParameter {
   implicit def rwP: upickle.default.ReadWriter[TLBParameter] = upickle.default.macroRW[TLBParameter]
 }
@@ -165,28 +165,11 @@ class TLB(val parameter: TLBParameter)
     val nSectors:          Int = parameter.nSectors
     val nSuperpageEntries: Int = parameter.nSuperpageEntries
   }
-  object PopCountAtLeast {
-    private def two(x: UInt): (Bool, Bool) = x.getWidth match {
-      case 1 => (x.asBool, false.B)
-      case n =>
-        val half = x.getWidth / 2
-        val (leftOne, leftTwo) = two(x(half - 1, 0))
-        val (rightOne, rightTwo) = two(x(x.getWidth - 1, half))
-        (leftOne || rightOne, leftTwo || rightTwo || (leftOne && rightOne))
-    }
-    def apply(x: UInt, n: Int): Bool = n match {
-      case 0 => true.B
-      case 1 => x.orR
-      case 2 => two(x)._2
-      case 3 => PopCount(x) >= n.U
-    }
-  }
 
   // end
 
   //  io.ptw.customCSRs := DontCare
   val vpn = io.req.bits.vaddr(vaddrBits - 1, pgIdxBits)
-
 
   /** index for sectored_Entry */
   val memIdx =

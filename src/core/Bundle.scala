@@ -516,3 +516,80 @@ class PTBR(xLen: Int, maxPAddrBits: Int, pgIdxBits: Int) extends Bundle {
   val asid = UInt(PTBR.maxASIdBits(xLen).W)
   val ppn = UInt((maxPAddrBits - pgIdxBits).W)
 }
+
+class BTBReq(vaddrBits: Int) extends Bundle {
+  val addr = UInt(vaddrBits.W)
+}
+
+class BTBResp(
+  vaddrBits:        Int,
+  entries:          Int,
+  fetchWidth:       Int,
+  bhtHistoryLength: Option[Int],
+  bhtCounterLength: Option[Int])
+    extends Bundle {
+
+  val cfiType = UInt(CFIType.width.W)
+  val taken   = Bool()
+  val mask    = UInt(fetchWidth.W)
+  val bridx   = UInt(log2Ceil(fetchWidth).W)
+  val target  = UInt(vaddrBits.W)
+  val entry   = UInt(log2Ceil(entries + 1).W)
+  // @todo make it optional with bhtHistoryLength and bhtCounterLength
+  val bht     = new BHTResp(bhtHistoryLength, bhtCounterLength)
+}
+
+object BHTResp {
+  def taken(bht:              BHTResp): Bool = bht.value(0)
+  def strongly_taken(bhtResp: BHTResp): Bool = bhtResp.value === 1.U
+}
+
+class BHTResp(bhtHistoryLength: Option[Int], bhtCounterLength: Option[Int]) extends Bundle {
+  val history = UInt(bhtHistoryLength.getOrElse(1).W)
+  val value   = UInt(bhtCounterLength.getOrElse(1).W)
+
+  // @todo: change to:
+  //  val history = bhtHistoryLength.map(i => UInt(i.W))
+  //  val value = bhtCounterLength.map(i => UInt(i.W))
+}
+
+class BTBUpdate(
+  vaddrBits:        Int,
+  entries:          Int,
+  fetchWidth:       Int,
+  bhtHistoryLength: Option[Int],
+  bhtCounterLength: Option[Int])
+    extends Bundle {
+  def fetchWidth: Int = 1
+
+  val prediction = new BTBResp(vaddrBits, entries, fetchWidth, bhtHistoryLength, bhtCounterLength)
+  val pc         = UInt(vaddrBits.W)
+  val target     = UInt(vaddrBits.W)
+  val taken      = Bool()
+  val isValid    = Bool()
+  val br_pc      = UInt(vaddrBits.W)
+  val cfiType    = UInt(CFIType.width.W)
+}
+
+class BHTUpdate(bhtHistoryLength: Option[Int], bhtCounterLength: Option[Int], vaddrBits: Int) extends Bundle {
+  val prediction = new BHTResp(bhtHistoryLength, bhtCounterLength)
+  val pc         = UInt(vaddrBits.W)
+  val branch     = Bool()
+  val taken      = Bool()
+  val mispredict = Bool()
+}
+
+class RASUpdate(vaddrBits: Int) extends Bundle {
+  val cfiType    = UInt(CFIType.width.W)
+  val returnAddr = UInt(vaddrBits.W)
+}
+
+// TODO: make it Enum
+object CFIType {
+  def width  = 2
+  def branch = 0.U
+  def jump   = 1.U
+  def call   = 2.U
+  def ret    = 3.U
+}
+
