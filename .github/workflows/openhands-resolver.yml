@@ -6,7 +6,7 @@ on:
       max_iterations:
         required: false
         type: number
-        default: 50
+        default: 10
       macro:
         required: false
         type: string
@@ -146,7 +146,7 @@ jobs:
             echo "COMMENT_ID=${{ github.event.comment.id || 'None' }}" >> $GITHUB_ENV
           fi
 
-          echo "MAX_ITERATIONS=${{ inputs.max_iterations || 50 }}" >> $GITHUB_ENV
+          echo "MAX_ITERATIONS=${{ inputs.max_iterations || 10 }}" >> $GITHUB_ENV
           echo "SANDBOX_ENV_GITHUB_TOKEN=${{ secrets.PAT_TOKEN || github.token }}" >> $GITHUB_ENV
           echo "SANDBOX_ENV_BASE_CONTAINER_IMAGE=${{ inputs.base_container_image }}" >> $GITHUB_ENV
 
@@ -202,7 +202,7 @@ jobs:
       - name: Attempt to resolve issue
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || github.token }}
-          GITHUB_USERNAME: ${{ secrets.PAT_USERNAME || 'openhands-agent' }}
+          GIT_USERNAME: ${{ secrets.PAT_USERNAME || 'openhands-agent' }}
           LLM_MODEL: ${{ secrets.LLM_MODEL || inputs.LLM_MODEL }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
