@@ -8,7 +8,7 @@ import chisel3._
 import chisel3.experimental.hierarchy.{instantiable, Instance, Instantiate}
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import chisel3.util.{log2Ceil, Cat, Decoupled, Enum, Fill, Mux1H, OHToUInt, PopCount, PriorityEncoder, UIntToOH, Valid}
-import org.chipsalliance.rocketv.{PseudoLRU, SetAssocLRU, PopCountAtLeast}
+import org.chipsalliance.rocketv.{PopCountAtLeast, PseudoLRU, SetAssocLRU}
 object TLBParameter {
   implicit def rwP: upickle.default.ReadWriter[TLBParameter] = upickle.default.macroRW[TLBParameter]
 }
@@ -496,7 +496,6 @@ class TLB(val parameter: TLBParameter)
   //   .forall(m => !m.supportsAcquireB || m.supportsHint)
   //   .B
   // prefetch range
-  println(s"ppn width${ppn.getWidth} paddr.width ${io.resp.paddr.getWidth}")
   io.resp.prefetchable := (prefetchable_array & hits).orR
   io.resp.miss := do_refill || tlb_miss || multipleHits
   io.resp.paddr := Cat(ppn, io.req.bits.vaddr(pgIdxBits - 1, 0))

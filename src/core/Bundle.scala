@@ -7,6 +7,7 @@ package ogpu.core
 
 import chisel3._
 import chisel3.util._
+import org.chipsalliance.rocketv.{Code, ICacheErrors, ICachePerfEvents, ICacheReq, ICacheResp, IdentityCode}
 
 /** Compute Unit Task Bundle
   *
@@ -530,13 +531,12 @@ class BTBResp(
     extends Bundle {
 
   val cfiType = UInt(CFIType.width.W)
-  val taken   = Bool()
-  val mask    = UInt(fetchWidth.W)
-  val bridx   = UInt(log2Ceil(fetchWidth).W)
-  val target  = UInt(vaddrBits.W)
-  val entry   = UInt(log2Ceil(entries + 1).W)
-  // @todo make it optional with bhtHistoryLength and bhtCounterLength
-  val bht     = new BHTResp(bhtHistoryLength, bhtCounterLength)
+  val taken = Bool()
+  val mask = UInt(fetchWidth.W)
+  val bridx = UInt(log2Ceil(fetchWidth).W)
+  val target = UInt(vaddrBits.W)
+  val entry = UInt(log2Ceil(entries + 1).W)
+  val bht = new BHTResp(bhtHistoryLength, bhtCounterLength)
 }
 
 object BHTResp {
@@ -546,7 +546,7 @@ object BHTResp {
 
 class BHTResp(bhtHistoryLength: Option[Int], bhtCounterLength: Option[Int]) extends Bundle {
   val history = UInt(bhtHistoryLength.getOrElse(1).W)
-  val value   = UInt(bhtCounterLength.getOrElse(1).W)
+  val value = UInt(bhtCounterLength.getOrElse(1).W)
 
   // @todo: change to:
   //  val history = bhtHistoryLength.map(i => UInt(i.W))
@@ -563,33 +563,138 @@ class BTBUpdate(
   def fetchWidth: Int = 1
 
   val prediction = new BTBResp(vaddrBits, entries, fetchWidth, bhtHistoryLength, bhtCounterLength)
-  val pc         = UInt(vaddrBits.W)
-  val target     = UInt(vaddrBits.W)
-  val taken      = Bool()
-  val isValid    = Bool()
-  val br_pc      = UInt(vaddrBits.W)
-  val cfiType    = UInt(CFIType.width.W)
+  val pc = UInt(vaddrBits.W)
+  val target = UInt(vaddrBits.W)
+  val taken = Bool()
+  val isValid = Bool()
+  val br_pc = UInt(vaddrBits.W)
+  val cfiType = UInt(CFIType.width.W)
 }
 
 class BHTUpdate(bhtHistoryLength: Option[Int], bhtCounterLength: Option[Int], vaddrBits: Int) extends Bundle {
   val prediction = new BHTResp(bhtHistoryLength, bhtCounterLength)
-  val pc         = UInt(vaddrBits.W)
-  val branch     = Bool()
-  val taken      = Bool()
+  val pc = UInt(vaddrBits.W)
+  val branch = Bool()
+  val taken = Bool()
   val mispredict = Bool()
 }
 
 class RASUpdate(vaddrBits: Int) extends Bundle {
-  val cfiType    = UInt(CFIType.width.W)
+  val cfiType = UInt(CFIType.width.W)
   val returnAddr = UInt(vaddrBits.W)
 }
 
 // TODO: make it Enum
 object CFIType {
-  def width  = 2
+  def width = 2
   def branch = 0.U
-  def jump   = 1.U
-  def call   = 2.U
-  def ret    = 3.U
+  def jump = 1.U
+  def call = 2.U
+  def ret = 3.U
 }
 
+class FrontendResp(
+  vaddrBits:         Int,
+  entries:           Int,
+  bhtHistoryLength:  Option[Int],
+  bhtCounterLength:  Option[Int],
+  vaddrBitsExtended: Int,
+  coreInstBits:      Int,
+  fetchWidth:        Int)
+    extends Bundle {
+  val btb = new BTBResp(vaddrBits, entries, fetchWidth, bhtHistoryLength: Option[Int], bhtCounterLength: Option[Int])
+  val pc = UInt(vaddrBitsExtended.W) // ID stage PC
+  val data = UInt((fetchWidth * coreInstBits).W)
+  val mask = UInt(fetchWidth.W)
+  val xcpt = new FrontendExceptions
+  val replay = Bool()
+}
+
+class FrontendExceptions extends Bundle {
+  val pf = Bool()
+  val gf = Bool()
+  val ae = Bool()
+}
+
+class FrontendReq(vaddrBitsExtended: Int) extends Bundle {
+  val pc = UInt(vaddrBitsExtended.W)
+  val speculative = Bool()
+}
+
+class FrontendPerfEvents extends Bundle {
+  val acquire = Bool()
+  val tlbMiss = Bool()
+}
+
+class FrontendIO(
+  vaddrBitsExtended: Int,
+  vaddrBits:         Int,
+  asidBits:          Int,
+  entries:           Int,
+  bhtHistoryLength:  Option[Int],
+  bhtCounterLength:  Option[Int],
+  coreInstBits:      Int,
+  fetchWidth:        Int)
+    extends Bundle {
+  val might_request = Output(Bool())
+  val clock_enabled = Input(Bool())
+  val req = Valid(new FrontendReq(vaddrBitsExtended))
+  val sfence = Valid(new SFenceReq(vaddrBits, asidBits))
+  val resp = Flipped(
+    Decoupled(
+      new FrontendResp(
+        vaddrBits,
+        entries,
+        bhtHistoryLength,
+        bhtCounterLength,
+        vaddrBitsExtended,
+        coreInstBits,
+        fetchWidth
+      )
+    )
+  )
+  val gpa = Flipped(Valid(UInt(vaddrBitsExtended.W)))
+  val btb_update = Valid(new BTBUpdate(vaddrBits, entries, fetchWidth, bhtHistoryLength, bhtCounterLength))
+  val bht_update = Valid(new BHTUpdate(bhtHistoryLength, bhtCounterLength, vaddrBits))
+  val ras_update = Valid(new RASUpdate(vaddrBits))
+  val flush_icache = Output(Bool())
+  val npc = Input(UInt(vaddrBitsExtended.W))
+  val perf = Input(new FrontendPerfEvents)
+  val progress = Output(Bool())
+}
+
+// Non-diplomatic version of Frontend
+class FrontendBundle(
+  vaddrBitsExtended: Int,
+  vaddrBits:         Int,
+  asidBits:          Int,
+  entries:           Int,
+  bhtHistoryLength:  Option[Int],
+  bhtCounterLength:  Option[Int],
+  coreInstBits:      Int,
+  nPMPs:             Int,
+  vpnBits:           Int,
+  paddrBits:         Int,
+  pgLevels:          Int,
+  xLen:              Int,
+  maxPAddrBits:      Int,
+  pgIdxBits:         Int,
+  hasCorrectable:    Boolean,
+  hasUncorrectable:  Boolean,
+  fetchWidth:        Int)
+    extends Bundle {
+  val cpu = Flipped(
+    new FrontendIO(
+      vaddrBitsExtended,
+      vaddrBits,
+      asidBits,
+      entries,
+      bhtHistoryLength,
+      bhtCounterLength,
+      coreInstBits,
+      fetchWidth
+    )
+  )
+  val ptw = new TLBPTWIO(vpnBits, paddrBits, vaddrBits, pgLevels, xLen, maxPAddrBits, pgIdxBits)
+  val errors = new ICacheErrors(hasCorrectable, hasUncorrectable, paddrBits)
+}

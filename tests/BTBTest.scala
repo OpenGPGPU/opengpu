@@ -17,12 +17,14 @@ class BTBTest extends AnyFlatSpec {
     useCompressed = false,
     updatesOutOfOrder = false,
     fetchWidth = 4,
-    bhtParameter = Some(BHTParameter(
-      nEntries = 512,
-      counterLength = 2,
-      historyLength = 8,
-      historyBits = 3
-    ))
+    bhtParameter = Some(
+      BHTParameter(
+        nEntries = 512,
+        counterLength = 2,
+        historyLength = 8,
+        historyBits = 3
+      )
+    )
   )
 
   behavior.of("BTB")
@@ -137,4 +139,3 @@ class BTBTest extends AnyFlatSpec {
     }
   }
 }
-

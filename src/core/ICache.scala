@@ -475,7 +475,6 @@ class ICache(val parameter: ICacheParameter)
 
   for (i <- 0 until nWays) {
     val s1_idx = index(s1_vaddr, io.s1_paddr)
-    println(s"s1_idx get width ${s1_idx.getWidth}")
     val s1_tag = io.s1_paddr >> pgUntagBits
 
     /** this way is used by scratchpad. [[icacheTagSRAM]] corrupted.
@@ -922,8 +921,6 @@ class ICache(val parameter: ICacheParameter)
 
     /** [[paddr]] as LSB to be used for VIPT. */
     val lsbs = paddr(pgUntagBits - 1, blockOffBits)
-
-    println(s"pguntagbits ${pgUntagBits} blockoff ${blockOffBits} idxbiys ${idxBits}")
 
     /** if [[untagBits]] > [[pgIdxBits]], append [[vaddr]] to higher bits of index as [[msbs]]. */
     val msbs = Option.when(idxBits + blockOffBits > pgUntagBits)(vaddr(idxBits + blockOffBits - 1, pgUntagBits))
