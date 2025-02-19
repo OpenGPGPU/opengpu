@@ -105,4 +105,55 @@ class FrontendTest extends AnyFlatSpec {
   //     dut.io.clock.step()
   //   }
   // }
+it should "handle branch prediction" in {
+    simulate(new Frontend(param), "frontendbranch") { dut =>
+      // Initialize
+      dut.io.clock.step()
+      dut.io.reset.poke(true.B)
+      dut.io.clock.step()
+      dut.io.reset.poke(false.B)
+
+      // Setup branch prediction
+      dut.io.resetVector.poke(0x1000.U)
+      dut.io.nonDiplomatic.cpu.might_request.poke(true.B)
+      dut.io.nonDiplomatic.cpu.req.valid.poke(true.B)
+      dut.io.nonDiplomatic.cpu.req.bits.pc.poke(0x1000.U)
+
+      // Send branch update
+      dut.io.nonDiplomatic.cpu.btb_update.valid.poke(true.B)
+      dut.io.nonDiplomatic.cpu.btb_update.bits.pc.poke(0x1000.U)
+      dut.io.nonDiplomatic.cpu.btb_update.bits.target.poke(0x2000.U)
+      dut.io.nonDiplomatic.cpu.btb_update.bits.taken.poke(true.B)
+      dut.io.clock.step()
+
+      // Verify branch prediction
+      dut.io.nonDiplomatic.cpu.btb_update.valid.poke(false.B)
+      dut.io.clock.step(3)
+      dut.io.nonDiplomatic.cpu.resp.ready.poke(true.B)
+      dut.io.clock.step()
+      dut.io.nonDiplomatic.cpu.req.bits.pc.expect(0x2000.U)
+    }
+  }
+
+  it should "handle TLB miss scenarios" in {
+    simulate(new Frontend(param), "frontendtlbmiss") { dut =>
+      // Initialize
+      dut.io.clock.step()
+      dut.io.reset.poke(true.B)
+      dut.io.clock.step()
+      dut.io.reset.poke(false.B)
+
+      // Trigger TLB miss
+      dut.io.resetVector.poke(0x80000000L.U)
+      dut.io.nonDiplomatic.cpu.might_request.poke(true.B)
+      dut.io.nonDiplomatic.cpu.req.valid.poke(true.B)
+      dut.io.nonDiplomatic.cpu.req.bits.pc.poke(0x80000000L.U)
+      dut.io.nonDiplomatic.ptw.status.prv.poke(3.U)
+
+      // Verify PTW request
+      dut.io.clock.step(5)
+      dut.io.nonDiplomatic.ptw.req.valid.expect(true.B)
+      dut.io.nonDiplomatic.ptw.req.bits.vpn.expect(0x80000.U)
+    }
+  }
 }
