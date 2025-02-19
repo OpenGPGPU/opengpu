@@ -105,7 +105,7 @@ class FrontendTest extends AnyFlatSpec {
   //     dut.io.clock.step()
   //   }
   // }
-it should "handle branch prediction" in {
+  it should "handle branch prediction" in {
     simulate(new Frontend(param), "frontendbranch") { dut =>
       // Initialize
       dut.io.clock.step()
