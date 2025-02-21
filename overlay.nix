@@ -1,10 +1,10 @@
 final: prev:
 {
   mill = (prev.mill.overrideAttrs (oldAttrs: rec {
-    version = "0.11.6";
+    version = "0.11.13";
     src = prev.fetchurl {
       url = "https://github.com/com-lihaoyi/mill/releases/download/${version}/${version}-assembly";
-      hash = "sha256-vGhjnOKvR2RdgFx3WsM217SO9gcKZknPaf7LKo3SJPU=";
+      hash = "sha256-hfhxIAEpl7dafW4+FGBHZfeTdQ7Dreou9r/6Kstai8A=";
     };
   })).override {
     jre = final.openjdk21;
