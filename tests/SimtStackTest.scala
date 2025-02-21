@@ -42,8 +42,6 @@ class SimtStackTest extends AnyFlatSpec {
       dut.io.diverge_out.expect(false.B)
       dut.io.clock.step()
       dut.io.empty.expect(true.B)
-
     }
   }
-
 }
