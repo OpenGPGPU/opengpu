@@ -14,9 +14,9 @@ import $file.depends.arithmetic.common
 import $file.depends.`chisel-interface`.common
 import $file.depends.`hardfloat`.common
 import $file.depends.`rvdecoderdb`.common
-import $file.depends.`rocket-chip`.common
-import $file.depends.`cde`.common
-import $file.depends.`diplomacy`.common
+// import $file.depends.`rocket-chip`.common
+// import $file.depends.`cde`.common
+// import $file.depends.`diplomacy`.common
 import $file.common
 
 object v {
@@ -37,16 +37,16 @@ trait Chisel extends millbuild.depends.chisel.build.Chisel {
   override def millSourcePath = os.pwd / "depends" / "chisel"
 }
 
-object macros extends Macros
-
-trait Macros
-  extends millbuild.depends.`rocket-chip`.common.MacrosModule
-    with ScalaModule {
-
-  def scalaVersion: T[String] = T(v.scala)
-
-  def scalaReflectIvy = v.scalaReflect
-}
+// object macros extends Macros
+// 
+// trait Macros
+//   extends millbuild.depends.`rocket-chip`.common.MacrosModule
+//     with ScalaModule {
+// 
+//   def scalaVersion: T[String] = T(v.scala)
+// 
+//   def scalaReflectIvy = v.scalaReflect
+// }
 
 object arithmetic extends Arithmetic
 
@@ -168,64 +168,64 @@ trait T1 extends millbuild.common.T1Module with ScalafmtModule {
   def chiselPluginIvy = None
 }
 
-object cde extends CDE
+// object cde extends CDE
+// 
+// trait CDE
+//   extends millbuild.depends.cde.common.CDEModule  with ScalaModule {
+//   override def millSourcePath = os.pwd / "depends" / "cde" / "cde"
+// 
+//   def scalaVersion: T[String] = T(v.scala)
+// 
+// }
+// 
+// object diplomacy extends Diplomacy
+// 
+// trait Diplomacy
+//     extends millbuild.depends.diplomacy.common.DiplomacyModule {
+// 
+//   override def scalaVersion: T[String] = T(v.scala)
+// 
+//   override def millSourcePath = os.pwd / "depends" / "diplomacy" / "diplomacy"
+//   def sourcecodeIvy = v.sourcecode
+// 
+// 
+//   def chiselModule    = Some(chisel)
+//   def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
+//   def chiselIvy       = None
+//   def chiselPluginIvy = None
+// 
+//   def cdeModule = cde
+// }
 
-trait CDE
-  extends millbuild.depends.cde.common.CDEModule  with ScalaModule {
-  override def millSourcePath = os.pwd / "depends" / "cde" / "cde"
+// object rocketchip extends RocketChip
 
-  def scalaVersion: T[String] = T(v.scala)
-
-}
-
-object diplomacy extends Diplomacy
-
-trait Diplomacy
-    extends millbuild.depends.diplomacy.common.DiplomacyModule {
-
-  override def scalaVersion: T[String] = T(v.scala)
-
-  override def millSourcePath = os.pwd / "depends" / "diplomacy" / "diplomacy"
-  def sourcecodeIvy = v.sourcecode
-
-
-  def chiselModule    = Some(chisel)
-  def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
-  def chiselIvy       = None
-  def chiselPluginIvy = None
-
-  def cdeModule = cde
-}
-
-object rocketchip extends RocketChip
-
-trait RocketChip
-  extends millbuild.depends.`rocket-chip`.common.RocketChipModule
-    with SbtModule {
-  def scalaVersion: T[String] = T(v.scala)
-  def sourcecodeIvy = v.sourcecode
-  def mainargsIvy = v.mainargs
-
-  override def millSourcePath = os.pwd / "depends" / "rocket-chip"
-
-  def chiselModule    = Some(chisel)
-  def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
-  def chiselIvy       = None
-  def chiselPluginIvy = None
-
-  def hardfloatModule = hardfloat
-
-  def cdeModule = cde
-
-  def macrosModule = macros
-
-  def diplomacyModule = diplomacy
-
-  def diplomacyIvy = None
-
-
-  def json4sJacksonIvy = ivy"org.json4s::json4s-jackson:4.0.5"
-}
+// trait RocketChip
+//   extends millbuild.depends.`rocket-chip`.common.RocketChipModule
+//     with SbtModule {
+//   def scalaVersion: T[String] = T(v.scala)
+//   def sourcecodeIvy = v.sourcecode
+//   def mainargsIvy = v.mainargs
+// 
+//   override def millSourcePath = os.pwd / "depends" / "rocket-chip"
+// 
+//   def chiselModule    = Some(chisel)
+//   def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
+//   def chiselIvy       = None
+//   def chiselPluginIvy = None
+// 
+//   def hardfloatModule = hardfloat
+// 
+//   def cdeModule = cde
+// 
+//   def macrosModule = macros
+// 
+//   def diplomacyModule = diplomacy
+// 
+//   def diplomacyIvy = None
+// 
+// 
+//   def json4sJacksonIvy = ivy"org.json4s::json4s-jackson:4.0.5"
+// }
 
 object ogpu extends OGPU
 
@@ -240,9 +240,6 @@ trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule with SbtModul
   def stdlibModule      = stdlib
   def T1Module          = t1
   def RocketvModule     = rocketv
-  def cdeModule         = cde
-  def diplomacyModule   = diplomacy
-  def rocketchipModule  = rocketchip
 
   def riscvOpcodesPath  = T.input(PathRef(os.pwd / "depends" / "riscv-opcodes"))
 
@@ -262,7 +259,7 @@ trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule with SbtModul
     println(s"Lines of code(LOC): ${lineCount()} !!!")
   }
 
-  object test extends SbtModuleTests
+  object test extends SbtTests
     with TestModule.ScalaTest
     with ScalafmtModule {
 
