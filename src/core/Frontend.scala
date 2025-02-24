@@ -12,7 +12,7 @@ import chisel3.util._
 import chisel3.util.circt.ClockGate
 import chisel3.util.experimental.BitSet
 import org.chipsalliance.amba.axi4.bundle.{AXI4BundleParameter, AXI4ROIrrevocable, AXI4RWIrrevocable}
-import org.chipsalliance.rocketv.{FetchQueue, FetchQueueParameter, ImmGen, RVCDecoder}
+import org.chipsalliance.rocketv.{ImmGen, RVCDecoder}
 
 object FrontendParameter {
   implicit def bitSetP: upickle.default.ReadWriter[BitSet] = upickle.default
@@ -27,6 +27,7 @@ object FrontendParameter {
 
 case class FrontendParameter(
   // must be false, since resetVector will be aligned here.
+  warpNum:               Int,
   useAsyncReset:         Boolean,
   clockGate:             Boolean,
   xLen:                  Int,
@@ -176,6 +177,7 @@ case class FrontendParameter(
 
   // entry = 5
   def fetchQueueParameter: FetchQueueParameter = FetchQueueParameter(
+    warpNum = warpNum,
     // static to be false.
     useAsyncReset = false,
     entries = 5,
@@ -194,6 +196,7 @@ class FrontendInterface(parameter: FrontendParameter) extends Bundle {
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val resetVector = Input(Const(UInt(parameter.resetVectorBits.W)))
   val nonDiplomatic = new FrontendBundle(
+    parameter.warpNum,
     parameter.vaddrBitsExtended,
     parameter.vaddrBits,
     parameter.asidBits,
@@ -228,6 +231,7 @@ class Frontend(val parameter: FrontendParameter)
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
+  def warpNum = parameter.warpNum
   def xLen = parameter.xLen
   def fetchWidth = parameter.fetchWidth
   def fetchBytes = parameter.fetchBytes
@@ -411,6 +415,9 @@ class Frontend(val parameter: FrontendParameter)
     fq.io.enq.bits.xcpt.ae := s2_tlb_resp.ae.inst
     fq.io.enq.bits.xcpt.gf := false.B
     fq.io.enq.bits.xcpt.pf := s2_tlb_resp.pf.inst
+    //TODO
+    fq.io.enq.bits.wid := 0.U
+
     //     assert(
     //       !(s2_speculative && io.ptw.customCSRs
     //         .asInstanceOf[RocketCustomCSRs]

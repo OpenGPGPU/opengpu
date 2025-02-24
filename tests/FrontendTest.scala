@@ -7,6 +7,7 @@ import ogpu.core._
 class FrontendTest extends AnyFlatSpec {
   val bitset = BitSet.fromRange(0x80000000, 0x20000000)
   val param = FrontendParameter(
+    warpNum = 4,
     useAsyncReset = false,
     clockGate = false,
     xLen = 32,

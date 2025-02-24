@@ -594,6 +594,7 @@ object CFIType {
 }
 
 class FrontendResp(
+  warpNum:        Int,
   vaddrBits:         Int,
   entries:           Int,
   bhtHistoryLength:  Option[Int],
@@ -604,6 +605,7 @@ class FrontendResp(
     extends Bundle {
   val btb = new BTBResp(vaddrBits, entries, fetchWidth, bhtHistoryLength: Option[Int], bhtCounterLength: Option[Int])
   val pc = UInt(vaddrBitsExtended.W) // ID stage PC
+  val wid = UInt(log2Ceil(warpNum).W)
   val data = UInt((fetchWidth * coreInstBits).W)
   val mask = UInt(fetchWidth.W)
   val xcpt = new FrontendExceptions
@@ -616,7 +618,8 @@ class FrontendExceptions extends Bundle {
   val ae = Bool()
 }
 
-class FrontendReq(vaddrBitsExtended: Int) extends Bundle {
+class FrontendReq(warpNum: Int, vaddrBitsExtended: Int) extends Bundle {
+  val wid = UInt(log2Ceil(warpNum).W)
   val pc = UInt(vaddrBitsExtended.W)
   val speculative = Bool()
 }
@@ -627,6 +630,7 @@ class FrontendPerfEvents extends Bundle {
 }
 
 class FrontendIO(
+  warpNum:  Int, // Number of warps
   vaddrBitsExtended: Int,
   vaddrBits:         Int,
   asidBits:          Int,
@@ -638,11 +642,12 @@ class FrontendIO(
     extends Bundle {
   val might_request = Output(Bool())
   val clock_enabled = Input(Bool())
-  val req = Valid(new FrontendReq(vaddrBitsExtended))
+  val req = Valid(new FrontendReq(warpNum, vaddrBitsExtended))
   val sfence = Valid(new SFenceReq(vaddrBits, asidBits))
   val resp = Flipped(
     Decoupled(
       new FrontendResp(
+        warpNum,
         vaddrBits,
         entries,
         bhtHistoryLength,
@@ -665,6 +670,7 @@ class FrontendIO(
 
 // Non-diplomatic version of Frontend
 class FrontendBundle(
+  warpNum:  Int, // Number of warps
   vaddrBitsExtended: Int,
   vaddrBits:         Int,
   asidBits:          Int,
@@ -685,6 +691,7 @@ class FrontendBundle(
     extends Bundle {
   val cpu = Flipped(
     new FrontendIO(
+  warpNum,
       vaddrBitsExtended,
       vaddrBits,
       asidBits,
