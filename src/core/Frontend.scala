@@ -436,8 +436,6 @@ class Frontend(val parameter: FrontendParameter)
     fq.io.enq.bits.xcpt.ae := s2_tlb_resp.ae.inst
     fq.io.enq.bits.xcpt.gf := false.B
     fq.io.enq.bits.xcpt.pf := s2_tlb_resp.pf.inst
-    // TODO
-    fq.io.enq.bits.wid := 0.U
 
     //     assert(
     //       !(s2_speculative && io.ptw.customCSRs
