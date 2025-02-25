@@ -594,7 +594,7 @@ object CFIType {
 }
 
 class FrontendResp(
-  warpNum:        Int,
+  warpNum:           Int,
   vaddrBits:         Int,
   entries:           Int,
   bhtHistoryLength:  Option[Int],
@@ -630,7 +630,7 @@ class FrontendPerfEvents extends Bundle {
 }
 
 class FrontendIO(
-  warpNum:  Int, // Number of warps
+  warpNum:           Int, // Number of warps
   vaddrBitsExtended: Int,
   vaddrBits:         Int,
   asidBits:          Int,
@@ -642,7 +642,7 @@ class FrontendIO(
     extends Bundle {
   val might_request = Output(Bool())
   val clock_enabled = Input(Bool())
-  val req = Valid(new FrontendReq(warpNum, vaddrBitsExtended))
+  val req = Decoupled(new FrontendReq(warpNum, vaddrBitsExtended))
   val sfence = Valid(new SFenceReq(vaddrBits, asidBits))
   val resp = Flipped(
     Decoupled(
@@ -670,7 +670,7 @@ class FrontendIO(
 
 // Non-diplomatic version of Frontend
 class FrontendBundle(
-  warpNum:  Int, // Number of warps
+  warpNum:           Int, // Number of warps
   vaddrBitsExtended: Int,
   vaddrBits:         Int,
   asidBits:          Int,
@@ -691,7 +691,7 @@ class FrontendBundle(
     extends Bundle {
   val cpu = Flipped(
     new FrontendIO(
-  warpNum,
+      warpNum,
       vaddrBitsExtended,
       vaddrBits,
       asidBits,

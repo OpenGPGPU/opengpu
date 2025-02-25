@@ -61,6 +61,7 @@ class FrontendTest extends AnyFlatSpec {
       dut.io.resetVector.poke(0x1000.U)
       dut.io.nonDiplomatic.cpu.might_request.poke(true.B)
       dut.io.nonDiplomatic.cpu.req.valid.poke(false.B)
+      dut.io.nonDiplomatic.cpu.req.bits.wid.poke(2.U)
       dut.io.nonDiplomatic.ptw.status.prv.poke(3.U)
       dut.io.nonDiplomatic.ptw.status.v.poke(false.B)
 
@@ -80,7 +81,7 @@ class FrontendTest extends AnyFlatSpec {
       dut.io.instructionFetchAXI.ar.ready.poke(true.B)
 
       var i = 0
-      while (dut.io.instructionFetchAXI.ar.valid.peek().litToBoolean == true) {
+      while (dut.io.instructionFetchAXI.ar.valid.peek().litToBoolean == true && i < 100) {
         i = i + 1
         dut.io.clock.step()
       }
@@ -92,8 +93,9 @@ class FrontendTest extends AnyFlatSpec {
       dut.io.instructionFetchAXI.r.bits.last.poke(true.B)
       dut.io.clock.step()
       dut.io.instructionFetchAXI.r.valid.poke(false.B)
-      while (dut.io.nonDiplomatic.cpu.resp.valid.peek().litToBoolean == false) {
+      while (dut.io.nonDiplomatic.cpu.resp.valid.peek().litToBoolean == false && i < 200) {
         dut.io.clock.step()
+        i = i + 1
       }
       dut.io.nonDiplomatic.cpu.resp.bits.pc.expect(0x1000.U)
       dut.io.nonDiplomatic.cpu.resp.bits.data.expect("hdeadbeef".U)
