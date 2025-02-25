@@ -594,7 +594,7 @@ object CFIType {
 }
 
 class FrontendResp(
-  warpNum:        Int,
+  warpNum:           Int,
   vaddrBits:         Int,
   entries:           Int,
   bhtHistoryLength:  Option[Int],
@@ -630,7 +630,7 @@ class FrontendPerfEvents extends Bundle {
 }
 
 class FrontendIO(
-  warpNum:  Int, // Number of warps
+  warpNum:           Int, // Number of warps
   vaddrBitsExtended: Int,
   vaddrBits:         Int,
   asidBits:          Int,
@@ -670,7 +670,7 @@ class FrontendIO(
 
 // Non-diplomatic version of Frontend
 class FrontendBundle(
-  warpNum:  Int, // Number of warps
+  warpNum:           Int, // Number of warps
   vaddrBitsExtended: Int,
   vaddrBits:         Int,
   asidBits:          Int,
@@ -691,7 +691,7 @@ class FrontendBundle(
     extends Bundle {
   val cpu = Flipped(
     new FrontendIO(
-  warpNum,
+      warpNum,
       vaddrBitsExtended,
       vaddrBits,
       asidBits,

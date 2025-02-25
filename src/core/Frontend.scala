@@ -320,7 +320,7 @@ class Frontend(val parameter: FrontendParameter)
         (!fq.io.mask(fq.io.mask.getWidth - 2) && (!s1_valid || !s2_valid)) ||
         (!fq.io.mask(fq.io.mask.getWidth - 1) && (!s1_valid && !s2_valid))
 
-    val s0_valid = (io.nonDiplomatic.cpu.req.valid && !req_processed  || need_replay)&& s0_fq_has_space
+    val s0_valid = (io.nonDiplomatic.cpu.req.valid && !req_processed || need_replay) && s0_fq_has_space
     s1_valid := s0_valid
     val s1_pc = Reg(UInt(vaddrBitsExtended.W))
     val s1_wid = Reg(UInt(log2Ceil(warpNum).W))
@@ -351,7 +351,7 @@ class Frontend(val parameter: FrontendParameter)
     s1_wid := io.nonDiplomatic.cpu.req.bits.wid
 
     io.nonDiplomatic.cpu.req.ready := !req_processed && !need_replay && s0_fq_has_space
-     when(s0_valid) {
+    when(s0_valid) {
       need_replay := false.B
     }.elsewhen(s2_valid && !fq.io.enq.fire) {
       need_replay := true.B
@@ -436,7 +436,7 @@ class Frontend(val parameter: FrontendParameter)
     fq.io.enq.bits.xcpt.ae := s2_tlb_resp.ae.inst
     fq.io.enq.bits.xcpt.gf := false.B
     fq.io.enq.bits.xcpt.pf := s2_tlb_resp.pf.inst
-    //TODO
+    // TODO
     fq.io.enq.bits.wid := 0.U
 
     //     assert(
