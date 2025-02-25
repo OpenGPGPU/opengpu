@@ -309,19 +309,26 @@ class Frontend(val parameter: FrontendParameter)
   )
 
   withClock(gated_clock) { // entering gated-clock domain
+    // 添加一个寄存器来跟踪请求是否已经被处理
+    val req_processed = RegInit(false.B)
+    // 添加一个寄存器来跟踪是否需要重放
+    val need_replay = RegInit(false.B)
     val s1_valid = Reg(Bool())
     val s2_valid = RegInit(false.B)
     val s0_fq_has_space =
       !fq.io.mask(fq.io.mask.getWidth - 3) ||
         (!fq.io.mask(fq.io.mask.getWidth - 2) && (!s1_valid || !s2_valid)) ||
         (!fq.io.mask(fq.io.mask.getWidth - 1) && (!s1_valid && !s2_valid))
-    val s0_valid = io.nonDiplomatic.cpu.req.valid || s0_fq_has_space
+
+    val s0_valid = (io.nonDiplomatic.cpu.req.valid && !req_processed  || need_replay)&& s0_fq_has_space
     s1_valid := s0_valid
     val s1_pc = Reg(UInt(vaddrBitsExtended.W))
+    val s1_wid = Reg(UInt(log2Ceil(warpNum).W))
     val s1_speculative = Reg(Bool())
     // TODO: make it Const
     def alignPC(pc: UInt): UInt = ~(~pc | (coreInstBytes - 1).U)
     val s2_pc = RegInit(UInt(vaddrBitsExtended.W), alignPC(io.resetVector))
+    val s2_wid = Reg(UInt(log2Ceil(warpNum).W))
     val s2_btb_resp_valid = if (usingBTB) Reg(Bool()) else false.B
     val s2_btb_resp_bits = Reg(new BTBResp(vaddrBits, entries, fetchWidth, bhtHistoryLength, bhtCounterLength))
     val s2_btb_taken = s2_btb_resp_valid && s2_btb_resp_bits.taken
@@ -340,7 +347,21 @@ class Frontend(val parameter: FrontendParameter)
     s2_replay := (s2_valid && !fq.io.enq.fire) || RegNext(s2_replay && !s0_valid, true.B)
     val npc = Mux(s2_replay, s2_pc, predicted_npc)
 
-    s1_pc := io.nonDiplomatic.cpu.npc
+    s1_pc := io.nonDiplomatic.cpu.req.bits.pc
+    s1_wid := io.nonDiplomatic.cpu.req.bits.wid
+
+    io.nonDiplomatic.cpu.req.ready := !req_processed && !need_replay && s0_fq_has_space
+     when(s0_valid) {
+      need_replay := false.B
+    }.elsewhen(s2_valid && !fq.io.enq.fire) {
+      need_replay := true.B
+    }
+
+    when(s0_valid) {
+      req_processed := true.B
+    }.elsewhen(fq.io.enq.fire) {
+      req_processed := false.B
+    }
     // consider RVC fetches across blocks to be non-speculative if the first
     // part was non-speculative
     val s0_speculative =
@@ -357,6 +378,7 @@ class Frontend(val parameter: FrontendParameter)
     when(!s2_replay) {
       s2_valid := !s2_redirect
       s2_pc := s1_pc
+      s2_wid := s1_wid
       s2_speculative := s1_speculative
       s2_tlb_resp := tlb.io.resp
     }
@@ -396,10 +418,9 @@ class Frontend(val parameter: FrontendParameter)
     //       .asInstanceOf[RocketCustomCSRs]
     //       .disableICachePrefetch
 
-    fq.io.enq.valid := RegNext(
-      s1_valid
-    ) && s2_valid && (icache.io.resp.valid || (s2_kill_speculative_tlb_refill && s2_tlb_resp.miss) || (!s2_tlb_resp.miss && icache.io.s2_kill))
+    fq.io.enq.valid := s2_valid && (icache.io.resp.valid || (s2_kill_speculative_tlb_refill && s2_tlb_resp.miss) || (!s2_tlb_resp.miss && icache.io.s2_kill))
     fq.io.enq.bits.pc := s2_pc
+    fq.io.enq.bits.wid := s2_wid
     io.nonDiplomatic.cpu.npc := alignPC(Mux(io.nonDiplomatic.cpu.req.valid, io.nonDiplomatic.cpu.req.bits.pc, npc))
 
     fq.io.enq.bits.data := icache.io.resp.bits.data

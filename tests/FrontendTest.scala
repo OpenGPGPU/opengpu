@@ -80,7 +80,7 @@ class FrontendTest extends AnyFlatSpec {
       dut.io.instructionFetchAXI.ar.ready.poke(true.B)
 
       var i = 0
-      while (dut.io.instructionFetchAXI.ar.valid.peek().litToBoolean == true) {
+      while (dut.io.instructionFetchAXI.ar.valid.peek().litToBoolean == true && i < 100) {
         i = i + 1
         dut.io.clock.step()
       }
@@ -92,8 +92,9 @@ class FrontendTest extends AnyFlatSpec {
       dut.io.instructionFetchAXI.r.bits.last.poke(true.B)
       dut.io.clock.step()
       dut.io.instructionFetchAXI.r.valid.poke(false.B)
-      while (dut.io.nonDiplomatic.cpu.resp.valid.peek().litToBoolean == false) {
+      while (dut.io.nonDiplomatic.cpu.resp.valid.peek().litToBoolean == false && i < 200) {
         dut.io.clock.step()
+        i = i + 1
       }
       dut.io.nonDiplomatic.cpu.resp.bits.pc.expect(0x1000.U)
       dut.io.nonDiplomatic.cpu.resp.bits.data.expect("hdeadbeef".U)

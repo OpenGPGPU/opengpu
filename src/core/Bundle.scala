@@ -642,7 +642,7 @@ class FrontendIO(
     extends Bundle {
   val might_request = Output(Bool())
   val clock_enabled = Input(Bool())
-  val req = Valid(new FrontendReq(warpNum, vaddrBitsExtended))
+  val req = Decoupled(new FrontendReq(warpNum, vaddrBitsExtended))
   val sfence = Valid(new SFenceReq(vaddrBits, asidBits))
   val resp = Flipped(
     Decoupled(
