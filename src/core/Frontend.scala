@@ -324,7 +324,7 @@ class Frontend(val parameter: FrontendParameter)
     s1_valid := s0_valid
     val s1_pc = Reg(UInt(vaddrBitsExtended.W))
     val s1_wid = Reg(UInt(log2Ceil(warpNum).W))
-    val s1_speculative = Reg(Bool())
+    // val s1_speculative = Reg(Bool())
     // TODO: make it Const
     def alignPC(pc: UInt): UInt = ~(~pc | (coreInstBytes - 1).U)
     val s2_pc = RegInit(UInt(vaddrBitsExtended.W), alignPC(io.resetVector))
@@ -334,7 +334,7 @@ class Frontend(val parameter: FrontendParameter)
     val s2_btb_taken = s2_btb_resp_valid && s2_btb_resp_bits.taken
     val s2_tlb_resp = Reg(tlb.io.resp.cloneType)
     val s2_xcpt = s2_tlb_resp.ae.inst || s2_tlb_resp.pf.inst
-    val s2_speculative = RegInit(false.B)
+    // val s2_speculative = RegInit(false.B)
     val s2_partial_insn_valid = RegInit(false.B)
     val s2_partial_insn = Reg(UInt(coreInstBits.W))
     val wrong_path = RegInit(false.B)
@@ -364,14 +364,10 @@ class Frontend(val parameter: FrontendParameter)
     }
     // consider RVC fetches across blocks to be non-speculative if the first
     // part was non-speculative
-    val s0_speculative =
-      if (usingCompressed) s1_speculative || s2_valid && !s2_speculative || predicted_taken
-      else true.B
-    s1_speculative := Mux(
-      io.nonDiplomatic.cpu.req.valid,
-      io.nonDiplomatic.cpu.req.bits.speculative,
-      Mux(s2_replay, s2_speculative, s0_speculative)
-    )
+    // val s0_speculative =
+    //  if (usingCompressed) s1_speculative || s2_valid && !s2_speculative || predicted_taken
+    //  else true.B
+    // s1_speculative := false.B
 
     val s2_redirect = WireDefault(io.nonDiplomatic.cpu.req.valid)
     s2_valid := false.B
@@ -379,7 +375,7 @@ class Frontend(val parameter: FrontendParameter)
       s2_valid := !s2_redirect
       s2_pc := s1_pc
       s2_wid := s1_wid
-      s2_speculative := s1_speculative
+      // s2_speculative := s1_speculative
       s2_tlb_resp := tlb.io.resp
     }
 
@@ -389,7 +385,7 @@ class Frontend(val parameter: FrontendParameter)
     when(io.nonDiplomatic.ptw.req.fire && recent_progress) { recent_progress_counter := recent_progress_counter - 1.U }
     when(io.nonDiplomatic.cpu.progress) { recent_progress_counter := recent_progress_counter_init }
 
-    val s2_kill_speculative_tlb_refill = s2_speculative && !recent_progress
+    val s2_kill_speculative_tlb_refill = !recent_progress
 
     tlb.io.req.valid := s1_valid && !s2_replay
     def M_XRD = "b00000".U
@@ -412,7 +408,7 @@ class Frontend(val parameter: FrontendParameter)
     val s2_can_speculatively_refill =
       s2_tlb_resp.cacheable
     //       && !io.nonDiplomatic.ptw.customCSRs.asInstanceOf[RocketCustomCSRs].disableSpeculativeICacheRefill
-    icache.io.s2_kill := s2_speculative && !s2_can_speculatively_refill || s2_xcpt
+    icache.io.s2_kill := !s2_can_speculatively_refill || s2_xcpt
     icache.io.s2_cacheable := s2_tlb_resp.cacheable
     icache.io.s2_prefetch := s2_tlb_resp.prefetchable
     //     && !io.ptw.customCSRs

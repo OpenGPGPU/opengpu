@@ -621,7 +621,7 @@ class FrontendExceptions extends Bundle {
 class FrontendReq(warpNum: Int, vaddrBitsExtended: Int) extends Bundle {
   val wid = UInt(log2Ceil(warpNum).W)
   val pc = UInt(vaddrBitsExtended.W)
-  val speculative = Bool()
+  // val speculative = Bool()
 }
 
 class FrontendPerfEvents extends Bundle {

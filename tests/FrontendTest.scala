@@ -73,7 +73,6 @@ class FrontendTest extends AnyFlatSpec {
       // Enable fetch
       dut.io.nonDiplomatic.cpu.req.valid.poke(true.B)
       dut.io.nonDiplomatic.cpu.req.bits.pc.poke(0x1000.U)
-      dut.io.nonDiplomatic.cpu.req.bits.speculative.poke(false.B)
       dut.io.clock.step()
       dut.io.nonDiplomatic.cpu.req.valid.poke(false.B)
 
