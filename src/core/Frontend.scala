@@ -403,7 +403,8 @@ class Frontend(val parameter: FrontendParameter)
     tlb.io.kill := !s2_valid || s2_kill_speculative_tlb_refill
 
     icache.io.req.valid := s0_valid
-    icache.io.req.bits.addr := io.nonDiplomatic.cpu.npc
+    // icache.io.req.bits.addr := io.nonDiplomatic.cpu.npc
+    icache.io.req.bits.addr := io.nonDiplomatic.cpu.req.bits.pc
     icache.io.invalidate := io.nonDiplomatic.cpu.flush_icache
     icache.io.s1_paddr := tlb.io.resp.paddr
     icache.io.s2_vaddr := s2_pc
@@ -421,7 +422,8 @@ class Frontend(val parameter: FrontendParameter)
     fq.io.enq.valid := s2_valid && (icache.io.resp.valid || (s2_kill_speculative_tlb_refill && s2_tlb_resp.miss) || (!s2_tlb_resp.miss && icache.io.s2_kill))
     fq.io.enq.bits.pc := s2_pc
     fq.io.enq.bits.wid := s2_wid
-    io.nonDiplomatic.cpu.npc := alignPC(Mux(io.nonDiplomatic.cpu.req.valid, io.nonDiplomatic.cpu.req.bits.pc, npc))
+    // io.nonDiplomatic.cpu.npc := alignPC(Mux(io.nonDiplomatic.cpu.req.valid, io.nonDiplomatic.cpu.req.bits.pc, npc))
+    io.nonDiplomatic.cpu.npc := alignPC(npc)
 
     fq.io.enq.bits.data := icache.io.resp.bits.data
     fq.io.enq.bits.mask := ((1 << fetchWidth) - 1).U << (if (log2Ceil(fetchWidth) == 0) 0.U
