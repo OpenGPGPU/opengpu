@@ -85,7 +85,6 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
-
   // State registers
   val warpActive = RegInit(VecInit(Seq.fill(parameter.warpNum)(false.B)))
   val warpBlocked = RegInit(VecInit(Seq.fill(parameter.warpNum)(false.B)))
@@ -197,24 +196,29 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
   }
 
   // Add buffer arbiter
-  val bufferArbiter = Module(new RRArbiter(new Bundle {
-    val inst = UInt(parameter.coreInstBits.W)
-    val pc = UInt(parameter.vaddrBitsExtended.W)
-    val wid = UInt(log2Ceil(parameter.warpNum).W)
-  }, parameter.warpNum))
+  val bufferArbiter = Module(
+    new RRArbiter(
+      new Bundle {
+        val inst = UInt(parameter.coreInstBits.W)
+        val pc = UInt(parameter.vaddrBitsExtended.W)
+        val wid = UInt(log2Ceil(parameter.warpNum).W)
+      },
+      parameter.warpNum
+    )
+  )
 
   // Connect buffer outputs to arbiter inputs
   for (i <- 0 until parameter.warpNum) {
-    bufferArbiter.io.in(i).valid := instBuffers(i).io.deq.valid && 
-                                   warpActive(i) && 
-                                   !warpBlocked(i)
+    bufferArbiter.io.in(i).valid := instBuffers(i).io.deq.valid &&
+      warpActive(i) &&
+      !warpBlocked(i)
     bufferArbiter.io.in(i).bits.inst := instBuffers(i).io.deq.bits.inst
     bufferArbiter.io.in(i).bits.pc := instBuffers(i).io.deq.bits.pc
     bufferArbiter.io.in(i).bits.wid := i.U
-    
+
     // Connect dequeue ready signals
-    instBuffers(i).io.deq.ready := bufferArbiter.io.in(i).ready && 
-                                  bufferArbiter.io.in(i).valid
+    instBuffers(i).io.deq.ready := bufferArbiter.io.in(i).ready &&
+      bufferArbiter.io.in(i).valid
   }
 
   // Connect arbiter to decode interface
