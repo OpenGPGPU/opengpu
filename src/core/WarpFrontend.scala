@@ -40,9 +40,6 @@ class WarpFrontendInterface(parameter: WarpFrontendParameter) extends Bundle {
       new FrontendResp(
         parameter.warpNum,
         parameter.vaddrBits,
-        parameter.entries,
-        None,
-        None,
         parameter.vaddrBitsExtended,
         parameter.coreInstBits,
         parameter.fetchWidth

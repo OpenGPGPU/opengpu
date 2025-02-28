@@ -19,9 +19,6 @@ case class FetchQueueParameter(
   useAsyncReset:     Boolean,
   entries:           Int,
   vaddrBits:         Int,
-  respEntries:       Int,
-  bhtHistoryLength:  Option[Int],
-  bhtCounterLength:  Option[Int],
   vaddrBitsExtended: Int,
   coreInstBits:      Int,
   fetchWidth:        Int)
@@ -29,9 +26,6 @@ case class FetchQueueParameter(
   def gen = new FrontendResp(
     warpNum,
     vaddrBits,
-    respEntries,
-    bhtHistoryLength,
-    bhtCounterLength,
     vaddrBitsExtended,
     coreInstBits,
     fetchWidth

@@ -596,20 +596,15 @@ object CFIType {
 class FrontendResp(
   warpNum:           Int,
   vaddrBits:         Int,
-  entries:           Int,
-  bhtHistoryLength:  Option[Int],
-  bhtCounterLength:  Option[Int],
   vaddrBitsExtended: Int,
   coreInstBits:      Int,
   fetchWidth:        Int)
     extends Bundle {
-  val btb = new BTBResp(vaddrBits, entries, fetchWidth, bhtHistoryLength: Option[Int], bhtCounterLength: Option[Int])
   val pc = UInt(vaddrBitsExtended.W) // ID stage PC
   val wid = UInt(log2Ceil(warpNum).W)
   val data = UInt((fetchWidth * coreInstBits).W)
   val mask = UInt(fetchWidth.W)
   val xcpt = new FrontendExceptions
-  val replay = Bool()
 }
 
 class FrontendExceptions extends Bundle {
@@ -634,9 +629,6 @@ class FrontendIO(
   vaddrBitsExtended: Int,
   vaddrBits:         Int,
   asidBits:          Int,
-  entries:           Int,
-  bhtHistoryLength:  Option[Int],
-  bhtCounterLength:  Option[Int],
   coreInstBits:      Int,
   fetchWidth:        Int)
     extends Bundle {
@@ -649,9 +641,6 @@ class FrontendIO(
       new FrontendResp(
         warpNum,
         vaddrBits,
-        entries,
-        bhtHistoryLength,
-        bhtCounterLength,
         vaddrBitsExtended,
         coreInstBits,
         fetchWidth
@@ -659,8 +648,6 @@ class FrontendIO(
     )
   )
   val gpa = Flipped(Valid(UInt(vaddrBitsExtended.W)))
-  val btb_update = Valid(new BTBUpdate(vaddrBits, entries, fetchWidth, bhtHistoryLength, bhtCounterLength))
-  val bht_update = Valid(new BHTUpdate(bhtHistoryLength, bhtCounterLength, vaddrBits))
   val ras_update = Valid(new RASUpdate(vaddrBits))
   val flush_icache = Output(Bool())
   val npc = Input(UInt(vaddrBitsExtended.W))
@@ -674,11 +661,7 @@ class FrontendBundle(
   vaddrBitsExtended: Int,
   vaddrBits:         Int,
   asidBits:          Int,
-  entries:           Int,
-  bhtHistoryLength:  Option[Int],
-  bhtCounterLength:  Option[Int],
   coreInstBits:      Int,
-  nPMPs:             Int,
   vpnBits:           Int,
   paddrBits:         Int,
   pgLevels:          Int,
@@ -695,9 +678,6 @@ class FrontendBundle(
       vaddrBitsExtended,
       vaddrBits,
       asidBits,
-      entries,
-      bhtHistoryLength,
-      bhtCounterLength,
       coreInstBits,
       fetchWidth
     )
