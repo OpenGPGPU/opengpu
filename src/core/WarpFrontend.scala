@@ -85,27 +85,19 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
-  object State extends ChiselEnum {
-    val Idle, WaitInit, Fetching, WaitBranch = Value
-  }
-  import State._
-
   // State registers
-  val state = RegInit(Idle)
   val warpActive = RegInit(VecInit(Seq.fill(parameter.warpNum)(false.B)))
   val warpBlocked = RegInit(VecInit(Seq.fill(parameter.warpNum)(false.B)))
   val warpPC = Reg(Vec(parameter.warpNum, UInt(parameter.vaddrBitsExtended.W)))
-  val currentWarp = Reg(UInt(log2Ceil(parameter.warpNum).W))
-
-  // Control signals
-  val fetchValid = RegInit(false.B)
 
   // Default values
-  io.warp_start.ready := state === Idle
   io.frontend_req.valid := false.B
   io.frontend_req.bits.pc := 0.U
   io.frontend_req.bits.wid := 0.U
   io.decode.valid := false.B
+
+  // Default values - simplify ready signal
+  io.warp_start.ready := !warpActive.reduce(_ && _) // True if not all warps are active
 
   // Round-robin arbiter for warp selection
   val warpArbiter = Module(
@@ -146,7 +138,6 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
   val branchPending = RegInit(VecInit(Seq.fill(parameter.warpNum)(false.B)))
 
   // Default values
-  io.warp_start.ready := true.B
   io.frontend_req.valid := false.B
   io.decode.valid := false.B
   io.frontend_resp.ready := false.B // Add default value
@@ -204,29 +195,41 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
     }
   }
 
-  // Issue instruction from selected warp
-  when(validWarpSelected && io.decode.ready) {
-    // Create one-hot encoding for selectedWarp
-    val selectedWarpOH = UIntToOH(selectedWarp)
+  // Add buffer arbiter
+  val bufferArbiter = Module(
+    new RRArbiter(
+      new Bundle {
+        val inst = UInt(parameter.coreInstBits.W)
+        val pc = UInt(parameter.vaddrBitsExtended.W)
+        val wid = UInt(log2Ceil(parameter.warpNum).W)
+      },
+      parameter.warpNum
+    )
+  )
 
-    // Valid and data signals for all buffers
-    val bufferValids = VecInit(instBuffers.map(_.io.deq.valid))
-    val bufferInsts = VecInit(instBuffers.map(_.io.deq.bits.inst))
-    val bufferPCs = VecInit(instBuffers.map(_.io.deq.bits.pc))
+  // Connect buffer outputs to arbiter inputs
+  for (i <- 0 until parameter.warpNum) {
+    bufferArbiter.io.in(i).valid := instBuffers(i).io.deq.valid &&
+      warpActive(i) &&
+      !warpBlocked(i)
+    bufferArbiter.io.in(i).bits.inst := instBuffers(i).io.deq.bits.inst
+    bufferArbiter.io.in(i).bits.pc := instBuffers(i).io.deq.bits.pc
+    bufferArbiter.io.in(i).bits.wid := i.U
 
-    // Select buffer outputs using Mux1H
-    when(Mux1H(selectedWarpOH, bufferValids)) {
-      io.decode.valid := true.B
-      io.decode.bits.inst := Mux1H(selectedWarpOH, bufferInsts)
-      io.decode.bits.pc := Mux1H(selectedWarpOH, bufferPCs)
-      io.decode.bits.wid := selectedWarp
-
-      // Set ready for selected buffer
-      for (i <- 0 until parameter.warpNum) {
-        instBuffers(i).io.deq.ready := selectedWarpOH(i)
-      }
-    }
+    // Connect dequeue ready signals
+    instBuffers(i).io.deq.ready := bufferArbiter.io.in(i).ready &&
+      bufferArbiter.io.in(i).valid
   }
+
+  // Connect arbiter to decode interface
+  bufferArbiter.io.out.ready := io.decode.ready
+  io.decode.valid := bufferArbiter.io.out.valid
+  io.decode.bits.inst := bufferArbiter.io.out.bits.inst
+  io.decode.bits.pc := bufferArbiter.io.out.bits.pc
+  io.decode.bits.wid := bufferArbiter.io.out.bits.wid
+
+  // Remove old instruction issue logic
+  // when(validWarpSelected && io.decode.ready) { ... }
 
   // Branch handling
   when(io.decode_branch) {
