@@ -53,7 +53,6 @@ class WarpFrontendInterface(parameter: WarpFrontendParameter) extends Bundle {
     val pc = UInt(parameter.vaddrBitsExtended.W)
     val wid = UInt(log2Ceil(parameter.warpNum).W)
   })
-  val decode_branch = Input(Bool())
 
   // Branch resolution interface
   val branch_update = Flipped(ValidIO(new Bundle {
@@ -90,12 +89,6 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
   val warpBlocked = RegInit(VecInit(Seq.fill(parameter.warpNum)(false.B)))
   val warpPC = Reg(Vec(parameter.warpNum, UInt(parameter.vaddrBitsExtended.W)))
 
-  // Default values
-  io.frontend_req.valid := false.B
-  io.frontend_req.bits.pc := 0.U
-  io.frontend_req.bits.wid := 0.U
-  io.decode.valid := false.B
-
   // Default values - simplify ready signal
   io.warp_start.ready := !warpActive.reduce(_ && _) // True if not all warps are active
 
@@ -116,7 +109,7 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
   }
 
   // Connect arbiter's ready signal
-  warpArbiter.io.out.ready := true.B // Always ready to accept arbiter's selection
+  warpArbiter.io.out.ready := io.frontend_req.ready
 
   val selectedWarp = warpArbiter.io.chosen
   val validWarpSelected = warpArbiter.io.out.valid
@@ -134,11 +127,10 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
     )
   }
 
-  // Control signals
-  val branchPending = RegInit(VecInit(Seq.fill(parameter.warpNum)(false.B)))
-
   // Default values
   io.frontend_req.valid := false.B
+  io.frontend_req.bits.pc := 0.U
+  io.frontend_req.bits.wid := 0.U
   io.decode.valid := false.B
   io.frontend_resp.ready := false.B // Add default value
   instBuffers.foreach(_.io.enq.valid := false.B)
@@ -172,13 +164,16 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
   }
 
   // Fetch control
-  when(validWarpSelected && !branchPending(selectedWarp)) {
+  when(validWarpSelected && !warpBlocked(selectedWarp)) {
     // Request instruction fetch
     io.frontend_req.valid := true.B
     io.frontend_req.bits.pc := warpPC(selectedWarp)
     io.frontend_req.bits.wid := selectedWarp
-
     // No longer update PC here, wait for decoder feedback
+  }
+
+  when(io.frontend_req.fire) {
+    warpBlocked(selectedWarp) := true.B
   }
 
   // Handle instruction buffer for each warp
@@ -187,7 +182,7 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
     val widOH = UIntToOH(wid)
 
     // Set ready based on target buffer's availability
-    io.frontend_resp.ready := Mux1H(widOH, instBuffers.map(!_.io.enq.ready))
+    io.frontend_resp.ready := Mux1H(widOH, instBuffers.map(_.io.enq.ready))
 
     // Connect to all buffers
     for (i <- 0 until parameter.warpNum) {
@@ -210,8 +205,7 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
   // Connect buffer outputs to arbiter inputs
   for (i <- 0 until parameter.warpNum) {
     bufferArbiter.io.in(i).valid := instBuffers(i).io.deq.valid &&
-      warpActive(i) &&
-      !warpBlocked(i)
+      warpActive(i)
     bufferArbiter.io.in(i).bits.inst := instBuffers(i).io.deq.bits.inst
     bufferArbiter.io.in(i).bits.pc := instBuffers(i).io.deq.bits.pc
     bufferArbiter.io.in(i).bits.wid := i.U
@@ -227,19 +221,6 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
   io.decode.bits.inst := bufferArbiter.io.out.bits.inst
   io.decode.bits.pc := bufferArbiter.io.out.bits.pc
   io.decode.bits.wid := bufferArbiter.io.out.bits.wid
-
-  // Remove old instruction issue logic
-  // when(validWarpSelected && io.decode.ready) { ... }
-
-  // Branch handling
-  when(io.decode_branch) {
-    val branchWarpOH = UIntToOH(selectedWarp)
-    for (i <- 0 until parameter.warpNum) {
-      when(branchWarpOH(i)) {
-        branchPending(i) := true.B
-      }
-    }
-  }
 
   // Handle decoder control response
   when(io.decode_control.valid) {
@@ -266,12 +247,12 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
     val branchWarpOH = UIntToOH(io.branch_update.bits.wid)
     for (i <- 0 until parameter.warpNum) {
       when(branchWarpOH(i)) {
-        branchPending(i) := false.B
         warpBlocked(i) := false.B
-        when(io.branch_update.bits.pc =/= warpPC(i)) {
-          instBuffers(i).reset := true.B
-          warpPC(i) := io.branch_update.bits.target
-        }
+        // when(io.branch_update.bits.pc =/= warpPC(i)) {
+        //  instBuffers(i).reset := true.B
+        //  warpPC(i) := io.branch_update.bits.target
+        // }
+        warpPC(i) := io.branch_update.bits.target
       }
     }
   }
