@@ -35,4 +35,6 @@ final: prev:
       circt.llvm.lib
     ];
   };
+
+  espresso = final.callPackage ./pkgs/espresso.nix { };
 }
