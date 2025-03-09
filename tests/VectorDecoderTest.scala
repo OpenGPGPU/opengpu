@@ -45,7 +45,7 @@ class VectorDecoderTest extends AnyFlatSpec {
       dut.io.decodeInput.poke("hFFFFFFFF".U) // 使用十六进制表示非法指令
       dut.io.clock.step()
 
-      //dut.io.decodeResult.illegal.expect(true.B)
+      // dut.io.decodeResult.illegal.expect(true.B)
     }
   }
 }

@@ -20,6 +20,7 @@
           git
           jdk21
           gnumake autoconf automake
+          espresso
           gcc
           mill
           dtc
