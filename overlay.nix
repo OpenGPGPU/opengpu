@@ -36,5 +36,5 @@ final: prev:
     ];
   };
 
-  espresso = final.callPackage ./pkgs/espresso.nix { };
+  espresso = final.callPackage ./nix/pkgs/espresso.nix { };
 }
