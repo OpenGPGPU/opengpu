@@ -32,7 +32,8 @@ class VectorDecoderTest extends AnyFlatSpec {
 
   it should "decode basic vector instructions correctly" in {
     simulate(new VectorDecoderWrapper(param), "vectordecodertest1") { dut =>
-      val vaddInstruction = "b1001011_00000_00000_000_00000_1010111".U // vadd.vv编码示例
+      // val vaddInstruction = "b1001011_00000_00000_000_00000_1010111".U // vadd.vv编码示例
+      val vaddInstruction = "h_02008157".U // vadd.vv编码示例
       dut.io.decodeInput.poke(vaddInstruction)
       dut.io.clock.step()
 
