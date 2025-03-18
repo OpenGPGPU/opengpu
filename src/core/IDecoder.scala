@@ -83,6 +83,7 @@ case class OGPUDecoderParameter(
   private val instructionDecodeFields: Seq[DecodeField[RocketDecodePattern, _ <: Data]] = Seq(
     isLegal,
     isBranch,
+    isVectorBranch,
     isJal,
     isJalr,
     isJoin,
@@ -183,7 +184,18 @@ case class OGPUDecoderParameter(
 
     override def genTable(op: RocketDecodePattern): BitPat = op.instruction.name match {
       // format: off
-      case i if Seq("bne", "beq", "blt", "bltu", "bge", "bgeu", "vbne", "vbeq", "vblt", "vbltu", "vbge", "vbgeu").contains(i) => y
+      case i if Seq("bne", "beq", "blt", "bltu", "bge", "bgeu").contains(i) => y
+      case _ => n
+      // format: on
+    }
+  }
+
+    object isVectorBranch extends BoolDecodeField[RocketDecodePattern] {
+    override def name: String = "vectorbranch"
+
+    override def genTable(op: RocketDecodePattern): BitPat = op.instruction.name match {
+      // format: off
+      case i if Seq("vbne", "vbeq", "vblt", "vbltu", "vbge", "vbgeu").contains(i) => y
       case _ => n
       // format: on
     }
