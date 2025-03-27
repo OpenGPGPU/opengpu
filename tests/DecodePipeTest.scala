@@ -47,9 +47,6 @@ class DecodePipeTest extends AnyFlatSpec {
       dut.io.fpuResult.ready.poke(true.B)
       dut.clock.step()
 
-      // First cycle: core decoder
-      dut.clock.step()
-
       // Second cycle: FPU decoder
       dut.io.coreResult.valid.expect(false.B)
       dut.io.fpuResult.valid.expect(true.B)
@@ -66,9 +63,6 @@ class DecodePipeTest extends AnyFlatSpec {
       dut.io.instruction.valid.poke(true.B)
       dut.io.instruction.bits.poke(vaddInstruction)
       dut.io.vectorResult.ready.poke(true.B)
-      dut.clock.step()
-
-      // First cycle: core decoder
       dut.clock.step()
 
       // Second cycle: Vector decoder

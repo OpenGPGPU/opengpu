@@ -50,8 +50,8 @@ class DecodePipe(parameter: OGPUDecoderParameter) extends Module {
       )
     )
 
-  val fpuDecode = Wire(parameter.floatTable.bundle)
-  val vectorDecode = Wire(io.vectorResult)
+  val fpuDecode = WireInit(0.U.asTypeOf(io.fpuResult.bits))
+  val vectorDecode = WireInit(0.U.asTypeOf(io.vectorResult.bits))
 
   fpuDecoder.map { fpu =>
     fpu.io.instruction := io.instruction.bits
