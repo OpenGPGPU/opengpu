@@ -75,9 +75,9 @@ case class OGPUDecoderParameter(
 
   private def fLen64: Boolean = hasAnySetIn("rv_d", "rv32_d", "rv64_d")
 
-  private val useFPU = !fLen0
+  val useFPU = !fLen0
   private val useMulDiv = hasAnySetIn("rv_m", "rv64_m")
-  private val useVector = hasAnySetIn("rv_v")
+  val useVector = hasAnySetIn("rv_v")
 
   private val instructionDecodePatterns: Seq[RocketDecodePattern] = instructions.map(RocketDecodePattern.apply)
   private val instructionDecodeFields: Seq[DecodeField[RocketDecodePattern, _ <: Data]] = Seq(
@@ -190,7 +190,7 @@ case class OGPUDecoderParameter(
     }
   }
 
-    object isVectorBranch extends BoolDecodeField[RocketDecodePattern] {
+  object isVectorBranch extends BoolDecodeField[RocketDecodePattern] {
     override def name: String = "vectorbranch"
 
     override def genTable(op: RocketDecodePattern): BitPat = op.instruction.name match {
@@ -944,6 +944,7 @@ class CoreDecoder(val parameter: OGPUDecoderParameter)
 @instantiable
 class FPUDecoder(val parameter: OGPUDecoderParameter)
   extends FixedIORawModule(new FPUDecoderInterface(parameter))
-    with SerializableModule[OGPUDecoderParameter] {
+    with SerializableModule[OGPUDecoderParameter]
+    with Public {
   io.output := parameter.floatTable.decode(io.instruction)
 }
