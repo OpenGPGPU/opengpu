@@ -9,7 +9,7 @@ import ogpu.core._
 
 class DecodePipeTest extends AnyFlatSpec {
   val param = OGPUDecoderParameter(
-    Set("rvv", "rvf"),
+    Set("rv_v", "rv_f"),
     false,
     false,
     16,

@@ -20,18 +20,18 @@ class VectorDecoderOM extends Class {
 
 @instantiable
 class VectorDecoder(param: DecoderParam) extends Module {
-  val omInstance: Instance[VectorDecoderOM] = Instantiate(new VectorDecoderOM)
-  val omType:     ClassType = omInstance.toDefinition.getClassType
-  @public
-  val om: Property[ClassType] = IO(Output(Property[omType.Type]()))
-  om := omInstance.getPropertyReference
+  // val omInstance: Instance[VectorDecoderOM] = Instantiate(new VectorDecoderOM)
+  // val omType:     ClassType = omInstance.toDefinition.getClassType
+  // @public
+  // val om: Property[ClassType] = IO(Output(Property[omType.Type]()))
+  // om := omInstance.getPropertyReference
 
   @public
   val decodeInput: UInt = IO(Input(UInt(32.W)))
   @public
   val decodeResult: DecodeBundle = IO(Output(new DecodeBundle(Decoder.allFields(param))))
 
-  omInstance.instructionsIn := Property(Decoder.allDecodePattern(param).map(_.om.asAnyClassType))
+  // omInstance.instructionsIn := Property(Decoder.allDecodePattern(param).map(_.om.asAnyClassType))
 
   decodeResult := Decoder.decode(param)(decodeInput)
 }

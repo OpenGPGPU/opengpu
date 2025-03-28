@@ -65,7 +65,7 @@ class DecodePipe(parameter: OGPUDecoderParameter) extends Module {
   // Update stage2Valid when data moves through pipeline
   when(io.instruction.fire) {
     stage2Valid := true.B
-  }.otherwise {
+  }.elsewhen(stage2Valid && stage2Ready) {
     stage2Valid := false.B
   }
 
