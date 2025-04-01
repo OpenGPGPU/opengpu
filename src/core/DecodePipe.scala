@@ -14,10 +14,13 @@ class DecodePipeInterface(parameter: OGPUDecoderParameter) extends Bundle {
     true,
     OGPUDecoderParameter(Set("rvv"), true, true).instructions
   )
-  val instruction = Flipped(DecoupledIO(UInt(32.W))) // 输入指令带握手信号
-  val coreResult = DecoupledIO(parameter.coreTable.bundle)
+  val instruction = Flipped(DecoupledIO(UInt(32.W)))
+  val coreResult = DecoupledIO(
+    parameter.coreTable.bundle
+  )
   val fpuResult = DecoupledIO(parameter.floatTable.bundle)
   val vectorResult = DecoupledIO(new DecodeBundle(Decoder.allFields(decode_param)))
+  val instruction_out = Output(UInt(32.W))
 }
 
 class DecodePipe(parameter: OGPUDecoderParameter) extends Module {
@@ -50,21 +53,27 @@ class DecodePipe(parameter: OGPUDecoderParameter) extends Module {
       )
     )
 
-  val fpuDecode = WireInit(0.U.asTypeOf(io.fpuResult.bits))
-  val vectorDecode = WireInit(0.U.asTypeOf(io.vectorResult.bits))
+  val fpuDecode = RegInit(0.U.asTypeOf(io.fpuResult.bits))
+  val vectorDecode = RegInit(0.U.asTypeOf(io.vectorResult.bits))
+  val instruction_next = Reg(UInt(32.W))
 
   fpuDecoder.map { fpu =>
     fpu.io.instruction := io.instruction.bits
-    fpuDecode := fpu.io.output
+    when(io.instruction.fire) {
+      fpuDecode := fpu.io.output
+    }
   }
   vectorDecoder.map { vector =>
     vector.decodeInput := io.instruction.bits
-    vectorDecode := vector.decodeResult
+    when(io.instruction.fire) {
+      vectorDecode := vector.decodeResult
+    }
   }
 
   // Update stage2Valid when data moves through pipeline
   when(io.instruction.fire) {
     stage2Valid := true.B
+    instruction_next := instruction_next
   }.elsewhen(stage2Valid && stage2Ready) {
     stage2Valid := false.B
   }
@@ -91,4 +100,6 @@ class DecodePipe(parameter: OGPUDecoderParameter) extends Module {
   // Vector result output
   io.vectorResult.valid := stage2Valid && isDecodeVector
   io.vectorResult.bits := vectorDecode
+
+  io.instruction_out := instruction_next
 }
