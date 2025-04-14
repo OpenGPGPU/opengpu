@@ -14,17 +14,27 @@ class DecodePipeInterface(parameter: OGPUDecoderParameter) extends Bundle {
     true,
     OGPUDecoderParameter(Set("rvv"), true, true).instructions
   )
+
+  val clock = Input(Clock())
+  // val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val reset = Input(Bool())
   val instruction = Flipped(DecoupledIO(UInt(32.W)))
   val coreResult = DecoupledIO(
-    parameter.coreTable.bundle
+    new CoreDecoderInterface(parameter)
   )
-  val fpuResult = DecoupledIO(parameter.floatTable.bundle)
+  val fpuResult = DecoupledIO(new FPUDecoderInterface(parameter))
   val vectorResult = DecoupledIO(new DecodeBundle(Decoder.allFields(decode_param)))
   val instruction_out = Output(UInt(32.W))
 }
 
-class DecodePipe(parameter: OGPUDecoderParameter) extends Module {
-  val io = IO(new DecodePipeInterface(parameter))
+class DecodePipe(val parameter: OGPUDecoderParameter)
+    extends FixedIORawModule(new DecodePipeInterface(parameter))
+    with SerializableModule[OGPUDecoderParameter]
+    with Public
+    with ImplicitClock
+    with ImplicitReset {
+  override protected def implicitClock: Clock = io.clock
+  override protected def implicitReset: Reset = io.reset
 
   // Pipeline stage valid and ready signals
   val stage2Ready = Wire(Bool())
@@ -35,7 +45,7 @@ class DecodePipe(parameter: OGPUDecoderParameter) extends Module {
   coreDecoder.io.instruction := io.instruction.bits
 
   // Pipeline registers for core decoder results
-  val coreResult = RegEnable(coreDecoder.io.output, io.instruction.fire)
+  val coreDecode = RegEnable(coreDecoder.io.output, io.instruction.fire)
 
   // Second stage - FPU and Vector decoders
   val fpuDecoder: Option[Instance[FPUDecoder]] =
@@ -60,7 +70,8 @@ class DecodePipe(parameter: OGPUDecoderParameter) extends Module {
   fpuDecoder.map { fpu =>
     fpu.io.instruction := io.instruction.bits
     when(io.instruction.fire) {
-      fpuDecode := fpu.io.output
+      fpuDecode.output := fpu.io.output
+      fpuDecode.instruction := instruction_next
     }
   }
   vectorDecoder.map { vector =>
@@ -81,8 +92,8 @@ class DecodePipe(parameter: OGPUDecoderParameter) extends Module {
   // First stage ready when second stage can accept or is empty
   io.instruction.ready := !stage2Valid || stage2Ready
 
-  val isDecodeFp = Option.when(parameter.useFPU)(coreResult(parameter.fp)).getOrElse(false.B)
-  val isDecodeVector = Option.when(parameter.useVector)(coreResult(parameter.vector)).getOrElse(false.B)
+  val isDecodeFp = Option.when(parameter.useFPU)(coreDecode(parameter.fp)).getOrElse(false.B)
+  val isDecodeVector = Option.when(parameter.useVector)(coreDecode(parameter.vector)).getOrElse(false.B)
 
   // Stage 2 ready when downstream is ready to accept
   stage2Ready := (io.fpuResult.ready && isDecodeFp) ||
@@ -91,7 +102,8 @@ class DecodePipe(parameter: OGPUDecoderParameter) extends Module {
 
   // Connect core result output
   io.coreResult.valid := stage2Valid && !isDecodeFp && !isDecodeVector
-  io.coreResult.bits := coreResult
+  io.coreResult.bits.output := coreDecode
+  io.coreResult.bits.instruction := instruction_next
 
   // FPU result output
   io.fpuResult.valid := stage2Valid && isDecodeFp
