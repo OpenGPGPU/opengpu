@@ -36,6 +36,7 @@ case class OGPUDecoderParameter(
   instructionSets:   Set[String],
   pipelinedMul:      Boolean,
   fenceIFlushDCache: Boolean,
+  warpNum:           Int = 8,
   minFLen:           Int = 16,
   xLen:              Int = 32)
     extends SerializableModuleParameter {

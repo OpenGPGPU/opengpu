@@ -8,6 +8,14 @@ import chisel3.util.experimental.decode.DecodeBundle
 import org.chipsalliance.t1.rtl.decoder.{Decoder, DecoderParam}
 import ogpu.vector._
 
+class InstructionBundle(
+  warpNum:        Int,
+  instructionLen: Int)
+    extends Bundle {
+  val instruction = UInt(instructionLen.W)
+  val wid = UInt(log2Ceil(warpNum).W)
+}
+
 class DecodePipeInterface(parameter: OGPUDecoderParameter) extends Bundle {
   val decode_param = DecoderParam(
     true,
@@ -18,13 +26,13 @@ class DecodePipeInterface(parameter: OGPUDecoderParameter) extends Bundle {
   val clock = Input(Clock())
   // val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val reset = Input(Bool())
-  val instruction = Flipped(DecoupledIO(UInt(32.W)))
+  val instruction = Flipped(DecoupledIO(new InstructionBundle(parameter.warpNum, 32)))
   val coreResult = DecoupledIO(
     new CoreDecoderInterface(parameter)
   )
   val fpuResult = DecoupledIO(new FPUDecoderInterface(parameter))
   val vectorResult = DecoupledIO(new DecodeBundle(Decoder.allFields(decode_param)))
-  val instruction_out = Output(UInt(32.W))
+  val instruction_out = Output(new InstructionBundle(parameter.warpNum, 32))
 }
 
 class DecodePipe(val parameter: OGPUDecoderParameter)
@@ -42,7 +50,7 @@ class DecodePipe(val parameter: OGPUDecoderParameter)
 
   // First stage - Core decoder
   val coreDecoder = Module(new CoreDecoder(parameter))
-  coreDecoder.io.instruction := io.instruction.bits
+  coreDecoder.io.instruction := io.instruction.bits.instruction
 
   // Pipeline registers for core decoder results
   val coreDecode = RegEnable(coreDecoder.io.output, io.instruction.fire)
@@ -65,17 +73,17 @@ class DecodePipe(val parameter: OGPUDecoderParameter)
 
   val fpuDecode = RegInit(0.U.asTypeOf(io.fpuResult.bits))
   val vectorDecode = RegInit(0.U.asTypeOf(io.vectorResult.bits))
-  val instruction_next = Reg(UInt(32.W))
+  val instruction_next = Reg(new InstructionBundle(parameter.warpNum, 32))
 
   fpuDecoder.map { fpu =>
-    fpu.io.instruction := io.instruction.bits
+    fpu.io.instruction := io.instruction.bits.instruction
     when(io.instruction.fire) {
       fpuDecode.output := fpu.io.output
-      fpuDecode.instruction := instruction_next
+      fpuDecode.instruction := instruction_next.instruction
     }
   }
   vectorDecoder.map { vector =>
-    vector.decodeInput := io.instruction.bits
+    vector.decodeInput := io.instruction.bits.instruction
     when(io.instruction.fire) {
       vectorDecode := vector.decodeResult
     }
@@ -84,7 +92,7 @@ class DecodePipe(val parameter: OGPUDecoderParameter)
   // Update stage2Valid when data moves through pipeline
   when(io.instruction.fire) {
     stage2Valid := true.B
-    instruction_next := instruction_next
+    instruction_next := io.instruction.bits
   }.elsewhen(stage2Valid && stage2Ready) {
     stage2Valid := false.B
   }
@@ -103,7 +111,7 @@ class DecodePipe(val parameter: OGPUDecoderParameter)
   // Connect core result output
   io.coreResult.valid := stage2Valid && !isDecodeFp && !isDecodeVector
   io.coreResult.bits.output := coreDecode
-  io.coreResult.bits.instruction := instruction_next
+  io.coreResult.bits.instruction := instruction_next.instruction
 
   // FPU result output
   io.fpuResult.valid := stage2Valid && isDecodeFp

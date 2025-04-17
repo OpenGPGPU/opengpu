@@ -25,7 +25,7 @@ class DecodePipeTest extends AnyFlatSpec {
 
       // Send instruction
       dut.io.instruction.valid.poke(true.B)
-      dut.io.instruction.bits.poke(addInstruction)
+      dut.io.instruction.bits.instruction.poke(addInstruction)
       dut.io.coreResult.ready.poke(true.B)
       dut.io.clock.step()
 
@@ -43,7 +43,7 @@ class DecodePipeTest extends AnyFlatSpec {
 
       // Send instruction
       dut.io.instruction.valid.poke(true.B)
-      dut.io.instruction.bits.poke(faddInstruction)
+      dut.io.instruction.bits.instruction.poke(faddInstruction)
       dut.io.fpuResult.ready.poke(true.B)
       dut.io.clock.step()
 
@@ -61,7 +61,7 @@ class DecodePipeTest extends AnyFlatSpec {
 
       // Send instruction
       dut.io.instruction.valid.poke(true.B)
-      dut.io.instruction.bits.poke(vaddInstruction)
+      dut.io.instruction.bits.instruction.poke(vaddInstruction)
       dut.io.vectorResult.ready.poke(true.B)
       dut.io.clock.step()
 
@@ -79,7 +79,7 @@ class DecodePipeTest extends AnyFlatSpec {
 
       // Send instruction but keep downstream not ready
       dut.io.instruction.valid.poke(true.B)
-      dut.io.instruction.bits.poke(instruction)
+      dut.io.instruction.bits.instruction.poke(instruction)
       dut.io.coreResult.ready.poke(false.B)
       dut.io.fpuResult.ready.poke(false.B)
       dut.io.vectorResult.ready.poke(false.B)
