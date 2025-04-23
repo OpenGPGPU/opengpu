@@ -17,11 +17,6 @@ class InstructionBundle(
 }
 
 class DecodePipeInterface(parameter: OGPUDecoderParameter) extends Bundle {
-  val decode_param = DecoderParam(
-    true,
-    true,
-    OGPUDecoderParameter(Set("rvv"), true, true).instructions
-  )
 
   val clock = Input(Clock())
   // val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
@@ -31,7 +26,7 @@ class DecodePipeInterface(parameter: OGPUDecoderParameter) extends Bundle {
     new CoreDecoderInterface(parameter)
   )
   val fpuResult = DecoupledIO(new FPUDecoderInterface(parameter))
-  val vectorResult = DecoupledIO(new DecodeBundle(Decoder.allFields(decode_param)))
+  val vectorResult = DecoupledIO(new DecodeBundle(Decoder.allFields(parameter.decode_param)))
   val instruction_out = Output(new InstructionBundle(parameter.warpNum, 32))
 }
 

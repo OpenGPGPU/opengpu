@@ -10,6 +10,7 @@ import chisel3.util.experimental.decode.{BoolDecodeField, DecodeField, DecodePat
 import org.chipsalliance.rvdecoderdb.{Encoding, Instruction, InstructionSet}
 
 import org.chipsalliance.rocketv.{FPUHelper, RocketDecodePattern, UOP, UOPDecodeField}
+import org.chipsalliance.t1.rtl.decoder.{Decoder, DecoderParam}
 
 object CustomInstructions {
   private def ogpu(name: String, encoding: Encoding) =
@@ -79,6 +80,11 @@ case class OGPUDecoderParameter(
   val useFPU = !fLen0
   private val useMulDiv = hasAnySetIn("rv_m", "rv64_m")
   val useVector = hasAnySetIn("rv_v")
+  val decode_param = DecoderParam(
+    true,
+    true,
+    OGPUDecoderParameter(Set("rv_v"), true, true).instructions
+  )
 
   private val instructionDecodePatterns: Seq[RocketDecodePattern] = instructions.map(RocketDecodePattern.apply)
   private val instructionDecodeFields: Seq[DecodeField[RocketDecodePattern, _ <: Data]] = Seq(
