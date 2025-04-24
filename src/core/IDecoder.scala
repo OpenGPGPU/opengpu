@@ -83,7 +83,7 @@ case class OGPUDecoderParameter(
   val decode_param = DecoderParam(
     true,
     true,
-    OGPUDecoderParameter(Set("rv_v"), true, true).instructions
+    instructions.filter(instruction => Set("rv_v").contains(instruction.instructionSet.name))
   )
 
   private val instructionDecodePatterns: Seq[RocketDecodePattern] = instructions.map(RocketDecodePattern.apply)
