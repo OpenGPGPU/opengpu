@@ -56,7 +56,7 @@ class WarpFrontendTest extends AnyFlatSpec {
 
       // Check decoder output
       dut.io.decode.valid.expect(true.B)
-      dut.io.decode.bits.inst.expect("hdeadbeef".U)
+      dut.io.decode.bits.instruction.expect("hdeadbeef".U)
       dut.io.decode.bits.pc.expect("h1000".U)
       dut.io.decode.bits.wid.expect(0.U)
     }

@@ -11,6 +11,7 @@ import org.chipsalliance.rvdecoderdb.{Encoding, Instruction, InstructionSet}
 
 import org.chipsalliance.rocketv.{FPUHelper, RocketDecodePattern, UOP, UOPDecodeField}
 import org.chipsalliance.t1.rtl.decoder.{Decoder, DecoderParam}
+import org.chipsalliance.rocketv.RVCExpanderParameter
 
 object CustomInstructions {
   private def ogpu(name: String, encoding: Encoding) =
@@ -80,7 +81,13 @@ case class OGPUDecoderParameter(
   val useFPU = !fLen0
   private val useMulDiv = hasAnySetIn("rv_m", "rv64_m")
   val useVector = hasAnySetIn("rv_v")
-  val decode_param = DecoderParam(
+
+  val rvc_decode_param = RVCExpanderParameter(
+    xLen,
+    false
+  )
+
+  val vector_decode_param = DecoderParam(
     true,
     true,
     instructions.filter(instruction => Set("rv_v").contains(instruction.instructionSet.name))

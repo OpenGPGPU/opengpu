@@ -6,14 +6,17 @@ import chisel3.experimental.hierarchy.{instantiable, Instance, Instantiate}
 import chisel3.experimental.SerializableModule
 import chisel3.util.experimental.decode.DecodeBundle
 import org.chipsalliance.t1.rtl.decoder.{Decoder, DecoderParam}
+import org.chipsalliance.rocketv.{RVCDecoder, RVCExpander, RVCExpanderInterface}
 import ogpu.vector._
 
 class InstructionBundle(
-  warpNum:        Int,
-  instructionLen: Int)
+  warpNum:           Int,
+  instructionLen:    Int,
+  vaddrBitsExtended: Int = 48)
     extends Bundle {
   val instruction = UInt(instructionLen.W)
   val wid = UInt(log2Ceil(warpNum).W)
+  val pc = UInt(vaddrBitsExtended.W)
 }
 
 class DecodePipeInterface(parameter: OGPUDecoderParameter) extends Bundle {
@@ -26,7 +29,7 @@ class DecodePipeInterface(parameter: OGPUDecoderParameter) extends Bundle {
     new CoreDecoderInterface(parameter)
   )
   val fpuResult = DecoupledIO(new FPUDecoderInterface(parameter))
-  val vectorResult = DecoupledIO(new DecodeBundle(Decoder.allFields(parameter.decode_param)))
+  val vectorResult = DecoupledIO(new DecodeBundle(Decoder.allFields(parameter.vector_decode_param)))
   val instruction_out = Output(new InstructionBundle(parameter.warpNum, 32))
 }
 
@@ -36,83 +39,97 @@ class DecodePipe(val parameter: OGPUDecoderParameter)
     with Public
     with ImplicitClock
     with ImplicitReset {
+
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
-  // Pipeline stage valid and ready signals
-  val stage2Ready = Wire(Bool())
+  // Stage 1: RVC expansion stage signals
+  val stage1Valid = RegInit(false.B)
+  val stage1Ready = Wire(Bool())
+
+  // Stage 2: Decode stage signals
   val stage2Valid = RegInit(false.B)
+  val stage2Ready = Wire(Bool())
 
-  // First stage - Core decoder
+  // First stage - RVC expansion
+  val rvcDecoder = Instantiate(new RVCExpander(parameter.rvc_decode_param))
+  val expanded_instruction = Wire(UInt(32.W))
+  val expanded_bundle = Reg(new InstructionBundle(parameter.warpNum, 32))
+
+  // Connect RVC decoder
+  rvcDecoder.io.in := io.instruction.bits.instruction
+  expanded_instruction := rvcDecoder.io.out.bits
+
+  // Stage 1 pipeline register update
+  when(io.instruction.fire) {
+    stage1Valid := true.B
+    expanded_bundle.instruction := expanded_instruction
+    expanded_bundle.wid := io.instruction.bits.wid
+    expanded_bundle.pc := io.instruction.bits.pc
+  }.elsewhen(stage1Valid && stage1Ready) {
+    stage1Valid := false.B
+  }
+
+  // Second stage - Core/FPU/Vector decoders
   val coreDecoder = Module(new CoreDecoder(parameter))
-  coreDecoder.io.instruction := io.instruction.bits.instruction
+  val fpuDecoder = Option.when(parameter.useFPU)(Instantiate(new FPUDecoder(parameter)))
+  val vectorDecoder = Option.when(parameter.useVector)(
+    Instantiate(new VectorDecoder(DecoderParam(true, true, parameter.instructions)))
+  )
 
-  // Pipeline registers for core decoder results
-  val coreDecode = RegEnable(coreDecoder.io.output, io.instruction.fire)
+  // Connect decoders to expanded instruction
+  coreDecoder.io.instruction := expanded_bundle.instruction
+  fpuDecoder.foreach(_.io.instruction := expanded_bundle.instruction)
+  vectorDecoder.foreach(_.decodeInput := expanded_bundle.instruction)
 
-  // Second stage - FPU and Vector decoders
-  val fpuDecoder: Option[Instance[FPUDecoder]] =
-    Option.when(parameter.useFPU)(Instantiate(new FPUDecoder(parameter)))
-  val vectorDecoder: Option[Instance[VectorDecoder]] =
-    Option.when(parameter.useVector)(
-      Instantiate(
-        new VectorDecoder(
-          DecoderParam(
-            true,
-            true,
-            parameter.instructions
-          )
-        )
-      )
-    )
-
+  // Pipeline registers for decode results
+  val coreDecode = RegEnable(coreDecoder.io.output, stage1Valid && stage1Ready)
   val fpuDecode = RegInit(0.U.asTypeOf(io.fpuResult.bits))
   val vectorDecode = RegInit(0.U.asTypeOf(io.vectorResult.bits))
   val instruction_next = Reg(new InstructionBundle(parameter.warpNum, 32))
 
-  fpuDecoder.map { fpu =>
-    fpu.io.instruction := io.instruction.bits.instruction
-    when(io.instruction.fire) {
-      fpuDecode.output := fpu.io.output
-      fpuDecode.instruction := instruction_next.instruction
-    }
-  }
-  vectorDecoder.map { vector =>
-    vector.decodeInput := io.instruction.bits.instruction
-    when(io.instruction.fire) {
-      vectorDecode := vector.decodeResult
-    }
-  }
-
   // Update stage2Valid when data moves through pipeline
-  when(io.instruction.fire) {
+  when(stage1Valid && stage1Ready) {
     stage2Valid := true.B
-    instruction_next := io.instruction.bits
+    instruction_next := expanded_bundle
   }.elsewhen(stage2Valid && stage2Ready) {
     stage2Valid := false.B
   }
 
-  // First stage ready when second stage can accept or is empty
-  io.instruction.ready := !stage2Valid || stage2Ready
+  fpuDecoder.map { fpu =>
+    fpu.io.instruction := expanded_bundle.instruction
+    when(stage1Valid && stage1Ready) {
+      fpuDecode.output := fpu.io.output
+      fpuDecode.instruction := expanded_bundle.instruction
+    }
+  }
+  vectorDecoder.map { vector =>
+    vector.decodeInput := expanded_bundle.instruction
+    when(stage1Valid && stage1Ready) {
+      vectorDecode := vector.decodeResult
+    }
+  }
 
+  // Determine instruction type from core decoder
   val isDecodeFp = Option.when(parameter.useFPU)(coreDecode(parameter.fp)).getOrElse(false.B)
   val isDecodeVector = Option.when(parameter.useVector)(coreDecode(parameter.vector)).getOrElse(false.B)
 
-  // Stage 2 ready when downstream is ready to accept
+  // Ready signals
   stage2Ready := (io.fpuResult.ready && isDecodeFp) ||
     (io.vectorResult.ready && isDecodeVector) ||
     (io.coreResult.ready && !isDecodeFp && !isDecodeVector)
 
-  // Connect core result output
+  stage1Ready := !stage2Valid || stage2Ready
+  io.instruction.ready := !stage1Valid || stage1Ready
+
+  // Connect outputs
   io.coreResult.valid := stage2Valid && !isDecodeFp && !isDecodeVector
   io.coreResult.bits.output := coreDecode
   io.coreResult.bits.instruction := instruction_next.instruction
 
-  // FPU result output
   io.fpuResult.valid := stage2Valid && isDecodeFp
   io.fpuResult.bits := fpuDecode
 
-  // Vector result output
   io.vectorResult.valid := stage2Valid && isDecodeVector
   io.vectorResult.bits := vectorDecode
 

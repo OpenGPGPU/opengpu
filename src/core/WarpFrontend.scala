@@ -48,11 +48,13 @@ class WarpFrontendInterface(parameter: WarpFrontendParameter) extends Bundle {
   )
 
   // Interface with Decoder
-  val decode = DecoupledIO(new Bundle {
-    val inst = UInt(parameter.coreInstBits.W)
-    val pc = UInt(parameter.vaddrBitsExtended.W)
-    val wid = UInt(log2Ceil(parameter.warpNum).W)
-  })
+  val decode = DecoupledIO(
+    new InstructionBundle(
+      parameter.warpNum,
+      parameter.coreInstBits,
+      parameter.vaddrBitsExtended
+    )
+  )
 
   // Branch resolution interface
   val branch_update = Flipped(ValidIO(new Bundle {
@@ -137,7 +139,7 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
   instBuffers.foreach(_.io.enq.bits.pc := io.frontend_resp.bits.pc)
   instBuffers.foreach(_.io.enq.bits.inst := io.frontend_resp.bits.data(parameter.coreInstBits - 1, 0))
   instBuffers.foreach(_.io.deq.ready := false.B)
-  io.decode.bits.inst := 0.U
+  io.decode.bits.instruction := 0.U
   io.decode.bits.pc := 0.U
   io.decode.bits.wid := 0.U
 
@@ -193,11 +195,11 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
   // Add buffer arbiter
   val bufferArbiter = Module(
     new RRArbiter(
-      new Bundle {
-        val inst = UInt(parameter.coreInstBits.W)
-        val pc = UInt(parameter.vaddrBitsExtended.W)
-        val wid = UInt(log2Ceil(parameter.warpNum).W)
-      },
+      new InstructionBundle(
+        parameter.warpNum,
+        parameter.coreInstBits,
+        parameter.vaddrBitsExtended
+      ),
       parameter.warpNum
     )
   )
@@ -206,7 +208,7 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
   for (i <- 0 until parameter.warpNum) {
     bufferArbiter.io.in(i).valid := instBuffers(i).io.deq.valid &&
       warpActive(i)
-    bufferArbiter.io.in(i).bits.inst := instBuffers(i).io.deq.bits.inst
+    bufferArbiter.io.in(i).bits.instruction := instBuffers(i).io.deq.bits.inst
     bufferArbiter.io.in(i).bits.pc := instBuffers(i).io.deq.bits.pc
     bufferArbiter.io.in(i).bits.wid := i.U
 
@@ -218,7 +220,7 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
   // Connect arbiter to decode interface
   bufferArbiter.io.out.ready := io.decode.ready
   io.decode.valid := bufferArbiter.io.out.valid
-  io.decode.bits.inst := bufferArbiter.io.out.bits.inst
+  io.decode.bits.instruction := bufferArbiter.io.out.bits.instruction
   io.decode.bits.pc := bufferArbiter.io.out.bits.pc
   io.decode.bits.wid := bufferArbiter.io.out.bits.wid
 

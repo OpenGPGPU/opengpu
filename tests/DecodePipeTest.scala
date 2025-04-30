@@ -28,6 +28,7 @@ class DecodePipeTest extends AnyFlatSpec {
       dut.io.instruction.bits.instruction.poke(addInstruction)
       dut.io.coreResult.ready.poke(true.B)
       dut.io.clock.step()
+      dut.io.clock.step()
 
       // Check if core result is valid
       dut.io.coreResult.valid.expect(true.B)
@@ -45,7 +46,7 @@ class DecodePipeTest extends AnyFlatSpec {
       dut.io.instruction.valid.poke(true.B)
       dut.io.instruction.bits.instruction.poke(faddInstruction)
       dut.io.fpuResult.ready.poke(true.B)
-      dut.io.clock.step()
+      dut.io.clock.step(2)
 
       // Second cycle: FPU decoder
       dut.io.coreResult.valid.expect(false.B)
@@ -63,7 +64,7 @@ class DecodePipeTest extends AnyFlatSpec {
       dut.io.instruction.valid.poke(true.B)
       dut.io.instruction.bits.instruction.poke(vaddInstruction)
       dut.io.vectorResult.ready.poke(true.B)
-      dut.io.clock.step()
+      dut.io.clock.step(2)
 
       // Second cycle: Vector decoder
       dut.io.coreResult.valid.expect(false.B)
@@ -85,7 +86,7 @@ class DecodePipeTest extends AnyFlatSpec {
       dut.io.vectorResult.ready.poke(false.B)
 
       // Check if pipeline stalls
-      dut.io.clock.step()
+      dut.io.clock.step(2)
       dut.io.instruction.ready.expect(false.B)
 
       // Make downstream ready

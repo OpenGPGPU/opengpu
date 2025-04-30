@@ -15,7 +15,7 @@ class ExecutionInterface(parameter: OGPUDecoderParameter) extends Bundle {
   // Inputs from decode stage
   val coreResult = Flipped(DecoupledIO(new CoreDecoderInterface(parameter)))
   val fpuResult = Flipped(DecoupledIO(new FPUDecoderInterface(parameter)))
-  val vectorResult = Flipped(DecoupledIO(new DecodeBundle(Decoder.allFields(parameter.decode_param))))
+  val vectorResult = Flipped(DecoupledIO(new DecodeBundle(Decoder.allFields(parameter.vector_decode_param))))
   val instruction_in = Input(new InstructionBundle(parameter.warpNum, 32))
 
   // Execution results output
