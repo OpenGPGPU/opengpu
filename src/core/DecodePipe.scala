@@ -31,6 +31,7 @@ class DecodePipeInterface(parameter: OGPUDecoderParameter) extends Bundle {
   val fpuResult = DecoupledIO(new FPUDecoderInterface(parameter))
   val vectorResult = DecoupledIO(new DecodeBundle(Decoder.allFields(parameter.vector_decode_param)))
   val instruction_out = Output(new InstructionBundle(parameter.warpNum, 32))
+  val rvc = Output(Bool())
 }
 
 class DecodePipe(val parameter: OGPUDecoderParameter)
@@ -55,6 +56,7 @@ class DecodePipe(val parameter: OGPUDecoderParameter)
   val rvcDecoder = Instantiate(new RVCExpander(parameter.rvc_decode_param))
   val expanded_instruction = Wire(UInt(32.W))
   val expanded_bundle = Reg(new InstructionBundle(parameter.warpNum, 32))
+  val rvc_status = RegInit(false.B) // Add register for RVC status
 
   // Connect RVC decoder
   rvcDecoder.io.in := io.instruction.bits.instruction
@@ -66,6 +68,7 @@ class DecodePipe(val parameter: OGPUDecoderParameter)
     expanded_bundle.instruction := expanded_instruction
     expanded_bundle.wid := io.instruction.bits.wid
     expanded_bundle.pc := io.instruction.bits.pc
+    rvc_status := rvcDecoder.io.rvc // Capture RVC status
   }.elsewhen(stage1Valid && stage1Ready) {
     stage1Valid := false.B
   }
@@ -87,11 +90,13 @@ class DecodePipe(val parameter: OGPUDecoderParameter)
   val fpuDecode = RegInit(0.U.asTypeOf(io.fpuResult.bits))
   val vectorDecode = RegInit(0.U.asTypeOf(io.vectorResult.bits))
   val instruction_next = Reg(new InstructionBundle(parameter.warpNum, 32))
+  val rvc_next = RegInit(false.B) // Add register for next stage RVC status
 
   // Update stage2Valid when data moves through pipeline
   when(stage1Valid && stage1Ready) {
     stage2Valid := true.B
     instruction_next := expanded_bundle
+    rvc_next := rvc_status // Pass RVC status to next stage
   }.elsewhen(stage2Valid && stage2Ready) {
     stage2Valid := false.B
   }
@@ -134,4 +139,5 @@ class DecodePipe(val parameter: OGPUDecoderParameter)
   io.vectorResult.bits := vectorDecode
 
   io.instruction_out := instruction_next
+  io.rvc := rvc_next // Connect final RVC status to output
 }
