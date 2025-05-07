@@ -18,6 +18,7 @@ class ExecutionInterface(parameter: OGPUDecoderParameter) extends Bundle {
   // val fpuResult = Flipped(DecoupledIO(new FPUDecoderInterface(parameter)))
   // val vectorResult = Flipped(DecoupledIO(new DecodeBundle(Decoder.allFields(parameter.vector_decode_param))))
   val instruction_in = Input(new InstructionBundle(parameter.warpNum, 32))
+  val rvc = Input(Bool()) // Add RVC input signal
 
   // Execution results output
   val execResult = DecoupledIO(new Bundle {
@@ -312,6 +313,7 @@ class Execution(val parameter: OGPUDecoderParameter)
     val imm = UInt(parameter.xLen.W)
     val funct3 = UInt(3.W)
     val funct7 = UInt(7.W)
+    val isRVC = Bool() // Add RVC status to decode stage register
   })
 
   val executeReg = Reg(new Bundle {
@@ -325,6 +327,7 @@ class Execution(val parameter: OGPUDecoderParameter)
     val imm = UInt(parameter.xLen.W)
     val funct3 = UInt(3.W)
     val funct7 = UInt(7.W)
+    val isRVC = Bool() // Update execute stage register
   })
 
   val writebackReg = Reg(new Bundle {
@@ -352,6 +355,7 @@ class Execution(val parameter: OGPUDecoderParameter)
     decodeReg.rd := io.instruction_in.instruction(11, 7)
     decodeReg.funct3 := io.instruction_in.instruction(14, 12)
     decodeReg.funct7 := io.instruction_in.instruction(31, 25)
+    decodeReg.isRVC := io.rvc // Update decode stage
 
     // Update register file read signals
     regFile.io.read.warpID := io.instruction_in.wid
@@ -398,6 +402,7 @@ class Execution(val parameter: OGPUDecoderParameter)
     executeReg.imm := decodeReg.imm
     executeReg.funct3 := decodeReg.funct3
     executeReg.funct7 := decodeReg.funct7
+    executeReg.isRVC := decodeReg.isRVC // Update execute stage register
 
     // Read register values
     executeReg.rs1Data := regFile.io.readData
@@ -453,7 +458,9 @@ class Execution(val parameter: OGPUDecoderParameter)
     )
   )
 
-  val nextPC = Mux(isJump || branchTaken, jumpTarget, executeReg.pc + 4.U)
+  // PC increment based on instruction type
+  val instBytes = Mux(executeReg.isRVC, 2.U, 4.U)
+  val nextPC = Mux(isJump || branchTaken, jumpTarget, executeReg.pc + instBytes)
 
   // Writeback stage
   when(executeReg.valid) { // Writeback stage continues regardless of stall
