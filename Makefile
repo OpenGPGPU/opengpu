@@ -16,4 +16,7 @@ ztest: init format
 
 clean:
 	nix --experimental-features 'nix-command flakes' develop -c mill -i clean
+
+dev:
+	nix --experimental-features 'nix-command flakes' develop -c zsh
 .phony: test
