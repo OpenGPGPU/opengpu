@@ -118,6 +118,7 @@ class DecodePipe(val parameter: OGPUDecoderParameter)
   // Determine instruction type from core decoder
   val isDecodeFp = Option.when(parameter.useFPU)(coreDecode(parameter.fp)).getOrElse(false.B)
   val isDecodeVector = Option.when(parameter.useVector)(coreDecode(parameter.vector)).getOrElse(false.B)
+  val isVectorBranch = Option.when(parameter.useVector)(coreDecode(parameter.isVectorBranch)).getOrElse(false.B)
 
   // Ready signals
   stage2Ready := (io.fpuResult.ready && isDecodeFp) ||
@@ -128,14 +129,14 @@ class DecodePipe(val parameter: OGPUDecoderParameter)
   io.instruction.ready := !stage1Valid || stage1Ready
 
   // Connect outputs
-  io.coreResult.valid := stage2Valid && !isDecodeFp && !isDecodeVector
+  io.coreResult.valid := stage2Valid && !isDecodeFp && !isDecodeVector && !isVectorBranch
   io.coreResult.bits.output := coreDecode
   io.coreResult.bits.instruction := instruction_next.instruction
 
   io.fpuResult.valid := stage2Valid && isDecodeFp
   io.fpuResult.bits := fpuDecode
 
-  io.vectorResult.valid := stage2Valid && isDecodeVector
+  io.vectorResult.valid := stage2Valid && (isDecodeVector | isVectorBranch)
   io.vectorResult.bits := vectorDecode
 
   io.instruction_out := instruction_next

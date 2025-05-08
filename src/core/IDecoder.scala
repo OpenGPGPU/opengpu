@@ -40,6 +40,7 @@ case class OGPUDecoderParameter(
   fenceIFlushDCache: Boolean,
   warpNum:           Int = 8,
   minFLen:           Int = 16,
+  vLen:              Int = 1024,
   xLen:              Int = 32)
     extends SerializableModuleParameter {
   val instructions: Seq[Instruction] =
