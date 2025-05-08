@@ -29,6 +29,13 @@ class ScoreboardInterface(warpNum: Int) extends Bundle {
   )
 }
 
+// Define an ExecutionType enumeration
+object ExecutionType {
+  val ALU = 0.U(2.W)
+  val FPU = 1.U(2.W)
+  val VEC = 2.U(2.W)
+}
+
 // Issue stage interface bundle
 class IssueStageInterface(parameter: OGPUDecoderParameter) extends Bundle {
   val clock = Input(Clock())
@@ -44,7 +51,9 @@ class IssueStageInterface(parameter: OGPUDecoderParameter) extends Bundle {
   // Output interface
   val out = DecoupledIO(new Bundle {
     val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val instruction = UInt(32.W)
+    val execType = UInt(2.W) // Indicates which execution unit will handle this instruction
+    val funct3 = UInt(3.W)
+    val funct7 = UInt(7.W)
     val pc = UInt(parameter.xLen.W)
     val rs1Data = UInt(parameter.xLen.W)
     val rs2Data = UInt(parameter.xLen.W)
@@ -148,19 +157,12 @@ class IssueStage(val parameter: OGPUDecoderParameter)
 
   // Modify issue logic to consider register dependencies
   val canIssue = !anyRegBusy && !scoreboardBusy
-  io.in.ready := canIssue
-  io.out.valid := canIssue && io.in.valid
 
-  // Select appropriate register file based on instruction type
-  val regFileRead = Mux1H(
-    Seq(
-      (!isFloatInst && !isVectorInst) -> io.intRegFile,
-      (isFloatInst && !isVectorInst) -> io.fpRegFile,
-      isVectorInst -> io.vecRegFile
-    )
-  )
+  // Add output register
+  val outputReg = RegInit(0.U.asTypeOf(io.out.bits))
+  val outputValidReg = RegInit(false.B)
 
-  // Register read logic
+  // Register read and output logic
   when(canIssue && io.in.valid) {
     // Set register addresses for all register files (only one will be used)
     Seq(io.intRegFile.rs1, io.fpRegFile.rs1).foreach { rf =>
@@ -201,21 +203,30 @@ class IssueStage(val parameter: OGPUDecoderParameter)
       )
     )
 
-    io.out.bits.rs1Data := Mux(
+    outputReg.rs1Data := Mux(
       useRs1,
       rs1DataSelected,
       Mux(decode(parameter.selAlu1) === 2.U, io.in.bits.instruction.pc, 0.U)
     )
-    io.out.bits.rs2Data := Mux(
+    outputReg.rs2Data := Mux(
       useRs2,
       rs2DataSelected,
       Mux(decode(parameter.selAlu2) === 1.U, imm, Mux(decode(parameter.selAlu2) === 2.U, 4.U, 0.U))
     )
-    io.out.bits.warpID := io.in.bits.instruction.wid
-    io.out.bits.instruction := inst
-    io.out.bits.pc := io.in.bits.instruction.pc
-    io.out.bits.rd := rd
-    io.out.bits.isRVC := io.in.bits.rvc
+    outputReg.warpID := io.in.bits.instruction.wid
+    outputReg.execType := Mux1H(
+      Seq(
+        (!isFloatInst && !isVectorInst) -> ExecutionType.ALU,
+        (isFloatInst && !isVectorInst) -> ExecutionType.FPU,
+        isVectorInst -> ExecutionType.VEC
+      )
+    )
+    outputReg.funct3 := inst(14, 12)
+    outputReg.funct7 := inst(31, 25)
+    outputReg.pc := io.in.bits.instruction.pc
+    outputReg.rd := rd
+    outputReg.isRVC := io.in.bits.rvc
+    outputValidReg := true.B
   }.otherwise {
     // Default values when not issuing
     Seq(io.intRegFile.rs1, io.fpRegFile.rs1, io.vecRegFile.rs1).foreach { rf =>
@@ -230,5 +241,14 @@ class IssueStage(val parameter: OGPUDecoderParameter)
       sb.warpID := 0.U
       sb.addr := 0.U
     }
+    outputValidReg := false.B
   }
+
+  // Connect output register to interface
+  io.out.bits := outputReg
+  io.out.valid := outputValidReg
+
+  // Propagate ready signal directly to avoid additional latency
+  // This allows new instruction to be accepted while current one is being processed
+  io.in.ready := canIssue
 }
