@@ -95,15 +95,18 @@ class Scoreboard(val parameter: ScoreboardParameter)
 class RegFileIO(dataWidth: Int) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
-  val read = Input(new Bundle {
-    val addr = UInt(5.W)
-  })
+  val read = Vec(
+    2,
+    Input(new Bundle {
+      val addr = UInt(5.W)
+    })
+  )
   val write = Input(new Bundle {
     val addr = UInt(5.W)
     val data = UInt(dataWidth.W)
     val en = Bool()
   })
-  val readData = Output(UInt(dataWidth.W))
+  val readData = Vec(2, Output(UInt(dataWidth.W)))
 }
 
 case class RegFileParameter(
@@ -126,7 +129,8 @@ class RegFile(val parameter: RegFileParameter)
   val rf: Mem[UInt] = Mem(parameter.regNum, UInt(parameter.dataWidth.W))
   private def access(addr: UInt): UInt = rf(addr(log2Ceil(parameter.regNum) - 1, 0))
 
-  io.readData := Mux(parameter.zero.B && io.read.addr === 0.U, 0.U, access(io.read.addr))
+  io.readData(0) := Mux(parameter.zero.B && io.read(0).addr === 0.U, 0.U, access(io.read(0).addr))
+  io.readData(1) := Mux(parameter.zero.B && io.read(1).addr === 0.U, 0.U, access(io.read(1).addr))
 
   when(io.write.en && io.write.addr =/= 0.U) {
     access(io.write.addr) := io.write.data
@@ -207,17 +211,20 @@ class WarpScoreboard(val parameter: WarpScoreboardParameter)
 class WarpRegFileIO(warpNum: Int, dataWidth: Int) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
-  val read = Input(new Bundle {
-    val warpID = UInt(log2Ceil(warpNum).W)
-    val addr = UInt(5.W)
-  })
+  val read = Vec(
+    2,
+    Input(new Bundle {
+      val warpID = UInt(log2Ceil(warpNum).W)
+      val addr = UInt(5.W)
+    })
+  )
   val write = Input(new Bundle {
     val warpID = UInt(log2Ceil(warpNum).W)
     val addr = UInt(5.W)
     val data = UInt(dataWidth.W)
     val en = Bool()
   })
-  val readData = Output(UInt(dataWidth.W))
+  val readData = Vec(2, Output(UInt(dataWidth.W)))
 }
 
 case class WarpRegFileParameter(
@@ -250,12 +257,15 @@ class WarpRegFile(val parameter: WarpRegFileParameter)
     regFiles(i).io.write.addr := io.write.addr
     regFiles(i).io.write.data := io.write.data
 
-    regFiles(i).io.read.addr := io.read.addr
+    regFiles(i).io.read(0).addr := io.read(0).addr
+    regFiles(i).io.read(1).addr := io.read(1).addr
   }
 
   // Create multiplexer for read output
-  val readDataVec = VecInit(regFiles.map(_.io.readData))
-  io.readData := readDataVec(io.read.warpID)
+  val readDataVec0 = VecInit(regFiles.map(_.io.readData(0)))
+  val readDataVec1 = VecInit(regFiles.map(_.io.readData(1)))
+  io.readData(0) := readDataVec0(io.read(0).warpID)
+  io.readData(1) := readDataVec1(io.read(1).warpID)
 }
 
 @instantiable
@@ -294,8 +304,10 @@ class Execution(val parameter: OGPUDecoderParameter)
   scoreboard.io.readBypassed.addr := io.instruction_in.instruction(24, 20) // rs2
 
   // Initialize register file inputs with default values
-  regFile.io.read.warpID := 0.U
-  regFile.io.read.addr := 0.U
+  regFile.io.read(0).warpID := 0.U
+  regFile.io.read(0).addr := 0.U
+  regFile.io.read(1).warpID := 0.U
+  regFile.io.read(1).addr := 0.U
   regFile.io.write.warpID := 0.U
   regFile.io.write.addr := 0.U
   regFile.io.write.data := 0.U
@@ -357,9 +369,16 @@ class Execution(val parameter: OGPUDecoderParameter)
     decodeReg.funct7 := io.instruction_in.instruction(31, 25)
     decodeReg.isRVC := io.rvc // Update decode stage
 
-    // Update register file read signals
-    regFile.io.read.warpID := io.instruction_in.wid
-    regFile.io.read.addr := io.instruction_in.instruction(19, 15) // rs1
+    // Update register file read signals for both rs1 and rs2
+    when(io.coreResult.valid && !stall) {
+      // First read port for rs1
+      regFile.io.read(0).warpID := io.instruction_in.wid
+      regFile.io.read(0).addr := io.instruction_in.instruction(19, 15) // rs1
+
+      // Second read port for rs2
+      regFile.io.read(1).warpID := io.instruction_in.wid
+      regFile.io.read(1).addr := io.instruction_in.instruction(24, 20) // rs2
+    }
 
     // Sign extend immediate
     val imm = io.instruction_in.instruction
@@ -405,8 +424,8 @@ class Execution(val parameter: OGPUDecoderParameter)
     executeReg.isRVC := decodeReg.isRVC // Update execute stage register
 
     // Read register values
-    executeReg.rs1Data := regFile.io.readData
-    executeReg.rs2Data := regFile.io.readData
+    executeReg.rs1Data := regFile.io.readData(0) // Data from first read port
+    executeReg.rs2Data := regFile.io.readData(1) // Data from second read port
 
     // Set scoreboard for destination register
     scoreboard.io.set.en := true.B
