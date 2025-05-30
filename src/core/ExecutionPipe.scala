@@ -13,18 +13,24 @@ class ExecutionInterface(parameter: OGPUDecoderParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
 
-  // Inputs from decode stage
-  val coreResult = Flipped(DecoupledIO(new CoreDecoderInterface(parameter)))
-  // val fpuResult = Flipped(DecoupledIO(new FPUDecoderInterface(parameter)))
-  // val vectorResult = Flipped(DecoupledIO(new DecodeBundle(Decoder.allFields(parameter.vector_decode_param))))
-  val instruction_in = Input(new InstructionBundle(parameter.warpNum, 32))
-  val rvc = Input(Bool()) // Add RVC input signal
+  // Input from Issue stage
+  val in = Flipped(DecoupledIO(new Bundle {
+    val warpID = UInt(log2Ceil(parameter.warpNum).W)
+    val execType = UInt(2.W)
+    val funct3 = UInt(3.W)
+    val funct7 = UInt(7.W)
+    val pc = UInt(parameter.xLen.W)
+    val rs1Data = UInt(parameter.xLen.W)
+    val rs2Data = UInt(parameter.xLen.W)
+    val rd = UInt(5.W)
+    val isRVC = Bool()
+  }))
 
   // Execution results output
-  val execResult = DecoupledIO(new Bundle {
+  val out = DecoupledIO(new Bundle {
     val result = UInt(parameter.xLen.W)
-    val wid = UInt(log2Ceil(parameter.warpNum).W)
-    val valid = Bool()
+    val warpID = UInt(log2Ceil(parameter.warpNum).W)
+    val rd = UInt(5.W)
     val exception = Bool()
   })
 }
@@ -279,240 +285,40 @@ class Execution(val parameter: OGPUDecoderParameter)
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
-  // Instantiate scoreboard and register file
-  val scoreboard = Module(new WarpScoreboard(WarpScoreboardParameter(parameter.warpNum, 32, true)))
-  val regFile = Module(new WarpRegFile(WarpRegFileParameter(parameter.warpNum, parameter.xLen, true)))
+  // ALU instance
   val alu = Module(new ALU(new ALUParameter(parameter.xLen)))
 
-  // Connect clock and reset
-  scoreboard.io.clock := io.clock
-  scoreboard.io.reset := io.reset
-  regFile.io.clock := io.clock
-  regFile.io.reset := io.reset
+  // Pipeline control
+  io.in.ready := true.B // Always ready to accept new instruction
 
-  // Initialize scoreboard inputs with default values
-  scoreboard.io.set.en := false.B
-  scoreboard.io.set.warpID := 0.U
-  scoreboard.io.set.addr := 0.U
-  scoreboard.io.clear.en := false.B
-  scoreboard.io.clear.warpID := 0.U
-  scoreboard.io.clear.addr := 0.U
-  // Update scoreboard read signals
-  scoreboard.io.read.warpID := io.instruction_in.wid
-  scoreboard.io.read.addr := io.instruction_in.instruction(19, 15) // rs1
-  scoreboard.io.readBypassed.warpID := io.instruction_in.wid
-  scoreboard.io.readBypassed.addr := io.instruction_in.instruction(24, 20) // rs2
-
-  // Initialize register file inputs with default values
-  regFile.io.read(0).warpID := 0.U
-  regFile.io.read(0).addr := 0.U
-  regFile.io.read(1).warpID := 0.U
-  regFile.io.read(1).addr := 0.U
-  regFile.io.write.warpID := 0.U
-  regFile.io.write.addr := 0.U
-  regFile.io.write.data := 0.U
-  regFile.io.write.en := false.B
-
-  // Pipeline registers
-  val decodeReg = Reg(new Bundle {
-    val valid = Bool()
-    val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val instruction = UInt(32.W)
-    val pc = UInt(parameter.xLen.W)
-    val rs1 = UInt(5.W)
-    val rs2 = UInt(5.W)
-    val rd = UInt(5.W)
-    val imm = UInt(parameter.xLen.W)
-    val funct3 = UInt(3.W)
-    val funct7 = UInt(7.W)
-    val isRVC = Bool() // Add RVC status to decode stage register
-  })
-
-  val executeReg = Reg(new Bundle {
-    val valid = Bool()
-    val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val instruction = UInt(32.W)
-    val pc = UInt(parameter.xLen.W)
-    val rs1Data = UInt(parameter.xLen.W)
-    val rs2Data = UInt(parameter.xLen.W)
-    val rd = UInt(5.W)
-    val imm = UInt(parameter.xLen.W)
-    val funct3 = UInt(3.W)
-    val funct7 = UInt(7.W)
-    val isRVC = Bool() // Update execute stage register
-  })
-
-  val writebackReg = Reg(new Bundle {
-    val valid = Bool()
-    val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val instruction = UInt(32.W)
-    val pc = UInt(parameter.xLen.W)
-    val result = UInt(parameter.xLen.W)
-    val rd = UInt(5.W)
-    val exception = Bool()
-  })
-
-  // Stall logic
-  val stall = scoreboard.io.busy || scoreboard.io.busyBypassed
-  io.coreResult.ready := !stall
-
-  // Decode stage
-  when(io.coreResult.valid && !stall) { // Only block new instructions when stalled
-    decodeReg.valid := true.B
-    decodeReg.warpID := io.instruction_in.wid
-    decodeReg.instruction := io.instruction_in.instruction
-    decodeReg.pc := io.instruction_in.pc
-    decodeReg.rs1 := io.instruction_in.instruction(19, 15)
-    decodeReg.rs2 := io.instruction_in.instruction(24, 20)
-    decodeReg.rd := io.instruction_in.instruction(11, 7)
-    decodeReg.funct3 := io.instruction_in.instruction(14, 12)
-    decodeReg.funct7 := io.instruction_in.instruction(31, 25)
-    decodeReg.isRVC := io.rvc // Update decode stage
-
-    // Update register file read signals for both rs1 and rs2
-    when(io.coreResult.valid && !stall) {
-      // First read port for rs1
-      regFile.io.read(0).warpID := io.instruction_in.wid
-      regFile.io.read(0).addr := io.instruction_in.instruction(19, 15) // rs1
-
-      // Second read port for rs2
-      regFile.io.read(1).warpID := io.instruction_in.wid
-      regFile.io.read(1).addr := io.instruction_in.instruction(24, 20) // rs2
-    }
-
-    // Sign extend immediate
-    val imm = io.instruction_in.instruction
-    decodeReg.imm := MuxCase(
-      0.U(parameter.xLen.W),
-      Seq(
-        (imm(6, 0) === "b0110011".U) -> 0.U, // R-type
-        (imm(6, 0) === "b0010011".U) -> Cat(Fill(20, imm(31)), imm(31, 20)), // I-type
-        (imm(6, 0) === "b0100011".U) -> Cat(Fill(20, imm(31)), imm(31, 25), imm(11, 7)), // S-type
-        (imm(6, 0) === "b1100011".U) -> Cat(
-          Fill(19, imm(31)),
-          imm(31),
-          imm(7),
-          imm(30, 25),
-          imm(11, 8),
-          0.U(1.W)
-        ), // B-type
-        (imm(6, 0) === "b1101111".U) -> Cat(
-          Fill(11, imm(31)),
-          imm(31),
-          imm(19, 12),
-          imm(20),
-          imm(30, 21),
-          0.U(1.W)
-        ), // J-type
-        (imm(6, 0) === "b1100111".U) -> Cat(Fill(20, imm(31)), imm(31, 20)) // I-type (JALR)
-      )
-    )
-  }.otherwise {
-    decodeReg.valid := false.B
-  }
-
-  // Execute stage
-  when(decodeReg.valid) { // Execute stage continues regardless of stall
-    executeReg.valid := true.B
-    executeReg.warpID := decodeReg.warpID
-    executeReg.instruction := decodeReg.instruction
-    executeReg.pc := decodeReg.pc
-    executeReg.rd := decodeReg.rd
-    executeReg.imm := decodeReg.imm
-    executeReg.funct3 := decodeReg.funct3
-    executeReg.funct7 := decodeReg.funct7
-    executeReg.isRVC := decodeReg.isRVC // Update execute stage register
-
-    // Read register values
-    executeReg.rs1Data := regFile.io.readData(0) // Data from first read port
-    executeReg.rs2Data := regFile.io.readData(1) // Data from second read port
-
-    // Set scoreboard for destination register
-    scoreboard.io.set.en := true.B
-    scoreboard.io.set.warpID := decodeReg.warpID
-    scoreboard.io.set.addr := decodeReg.rd
-  }.otherwise {
-    executeReg.valid := false.B
-  }
+  // Output registers
+  val outValidReg = RegInit(false.B)
+  val outResultReg = RegInit(0.U(parameter.xLen.W))
+  val outWarpIDReg = RegInit(0.U(log2Ceil(parameter.warpNum).W))
+  val outRdReg = RegInit(0.U(5.W))
+  val outExceptionReg = RegInit(false.B)
 
   // ALU execution
   alu.io.dw := false.B
-  alu.io.fn := Cat(executeReg.funct7(5), executeReg.funct3)
-  alu.io.in1 := executeReg.rs1Data
-  alu.io.in2 := Mux(executeReg.instruction(6, 0) === "b0010011".U, executeReg.imm, executeReg.rs2Data)
+  alu.io.fn := Cat(io.in.bits.funct7(5), io.in.bits.funct3)
+  alu.io.in1 := io.in.bits.rs1Data
+  alu.io.in2 := io.in.bits.rs2Data
 
-  // Branch comparison logic
-  val isBranch = executeReg.instruction(6, 0) === "b1100011".U
-  val isJump = executeReg.instruction(6, 0) === "b1101111".U || // JAL
-    executeReg.instruction(6, 0) === "b1100111".U // JALR
-
-  // Set ALU function for branch comparison
-  when(isBranch) {
-    // ALU function encoding for branch instructions:
-    // funct3[2:0]  Meaning
-    // 000          BEQ
-    // 001          BNE
-    // 100          BLT
-    // 101          BGE
-    // 110          BLTU
-    // 111          BGEU
-    alu.io.fn := Cat(false.B, executeReg.funct3)
-  }
-
-  // Branch target calculation
-  val branchOffset = executeReg.imm
-  val branchTarget = executeReg.pc + branchOffset
-
-  // Use ALU comparison output for branch decision
-  val branchTaken = isBranch && alu.io.cmp_out
-
-  // Jump and branch target selection
-  val jumpTarget = Mux(
-    executeReg.instruction(6, 0) === "b1100111".U, // JALR
-    (executeReg.rs1Data + executeReg.imm) & ~1.U, // Clear least significant bit for JALR
-    Mux(
-      executeReg.instruction(6, 0) === "b1101111".U, // JAL
-      executeReg.pc + executeReg.imm,
-      branchTarget
-    )
-  )
-
-  // PC increment based on instruction type
-  val instBytes = Mux(executeReg.isRVC, 2.U, 4.U)
-  val nextPC = Mux(isJump || branchTaken, jumpTarget, executeReg.pc + instBytes)
-
-  // Writeback stage
-  when(executeReg.valid) { // Writeback stage continues regardless of stall
-    writebackReg.valid := true.B
-    writebackReg.warpID := executeReg.warpID
-    writebackReg.instruction := executeReg.instruction
-    writebackReg.pc := executeReg.pc
-    writebackReg.rd := executeReg.rd
-    writebackReg.result := alu.io.out
-    writebackReg.exception := false.B
-
-    // Write result to register file
-    regFile.io.write.warpID := executeReg.warpID
-    regFile.io.write.addr := executeReg.rd
-    regFile.io.write.data := alu.io.out
-    regFile.io.write.en := true.B
-
-    // Clear scoreboard
-    scoreboard.io.clear.en := true.B
-    scoreboard.io.clear.warpID := executeReg.warpID
-    scoreboard.io.clear.addr := executeReg.rd
+  // Register output results
+  when(io.in.valid) {
+    outValidReg := true.B
+    outResultReg := alu.io.out
+    outWarpIDReg := io.in.bits.warpID
+    outRdReg := io.in.bits.rd
+    outExceptionReg := false.B
   }.otherwise {
-    writebackReg.valid := false.B
+    outValidReg := false.B
   }
 
-  // Output results
-  io.execResult.valid := writebackReg.valid
-  io.execResult.bits.result := writebackReg.result
-  io.execResult.bits.wid := writebackReg.warpID
-  io.execResult.bits.valid := writebackReg.valid
-  io.execResult.bits.exception := writebackReg.exception
-
-  // Exception handling
-  val illegalInstruction = !decodeReg.valid && io.coreResult.valid
-  val misalignedPC = decodeReg.pc(1, 0) =/= 0.U
+  // Connect output signals
+  io.out.valid := outValidReg
+  io.out.bits.result := outResultReg
+  io.out.bits.warpID := outWarpIDReg
+  io.out.bits.rd := outRdReg
+  io.out.bits.exception := outExceptionReg
 }

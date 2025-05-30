@@ -52,6 +52,7 @@ class IssueStageInterface(parameter: OGPUDecoderParameter) extends Bundle {
   val out = DecoupledIO(new Bundle {
     val warpID = UInt(log2Ceil(parameter.warpNum).W)
     val execType = UInt(2.W) // Indicates which execution unit will handle this instruction
+    val aluFn = UInt(parameter.UOPALU.width.W)
     val funct3 = UInt(3.W)
     val funct7 = UInt(7.W)
     val pc = UInt(parameter.xLen.W)
@@ -223,6 +224,7 @@ class IssueStage(val parameter: OGPUDecoderParameter)
     )
     outputReg.funct3 := inst(14, 12)
     outputReg.funct7 := inst(31, 25)
+    outputReg.aluFn := decode(parameter.aluFn)
     outputReg.pc := io.in.bits.instruction.pc
     outputReg.rd := rd
     outputReg.isRVC := io.in.bits.rvc

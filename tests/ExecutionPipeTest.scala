@@ -1,7 +1,8 @@
+package ogpu.core
+
 import chisel3._
 import chisel3.simulator.VCDHackedEphemeralSimulator._
 import org.scalatest.flatspec.AnyFlatSpec
-import ogpu.core._
 
 class ExecutionPipeTest extends AnyFlatSpec {
   val parameter = OGPUDecoderParameter(
@@ -12,67 +13,93 @@ class ExecutionPipeTest extends AnyFlatSpec {
     32
   )
 
-  behavior.of("ExecutionPipe")
+  behavior.of("Execution")
 
-  it should "handle basic execution pipeline operations correctly" in {
-    simulate(new Execution(parameter), "executionpipetest1") { dut =>
+  it should "handle basic ALU operations correctly" in {
+    simulate(new Execution(parameter), "execution_alu_add") { dut =>
       // Initialize
       dut.io.clock.step()
       dut.io.reset.poke(true.B)
       dut.io.clock.step()
       dut.io.reset.poke(false.B)
 
-      // Test basic ALU operation (ADD)
+      // Test add operation
       val testWarpID = 0.U
-      val testPC = 0x1000.U
-      val testInstruction = "h_3e800093".U //  addi x1 , x0,   1000
-      val expectedResult = 1000.U
+      val rs1Data = 1000.U
+      val rs2Data = 2000.U
+      val expectedResult = 3000.U
 
-      // Setup instruction
-      dut.io.instruction_in.wid.poke(testWarpID)
-      dut.io.instruction_in.pc.poke(testPC)
-      dut.io.instruction_in.instruction.poke(testInstruction)
+      // Setup input signals
+      dut.io.in.valid.poke(true.B)
+      dut.io.in.bits.warpID.poke(testWarpID)
+      dut.io.in.bits.funct3.poke("b000".U) // ADD
+      dut.io.in.bits.funct7.poke("b0000000".U)
+      dut.io.in.bits.rs1Data.poke(rs1Data)
+      dut.io.in.bits.rs2Data.poke(rs2Data)
+      dut.io.in.bits.rd.poke(1.U)
+      dut.io.in.bits.pc.poke(0x1000.U)
 
-      // Setup register values
-      dut.io.coreResult.valid.poke(true.B)
-
-      // Wait for execution
-      dut.io.clock.step(3) // Wait for pipeline stages
+      dut.io.clock.step()
 
       // Check result
-      dut.io.execResult.valid.expect(true.B)
-      dut.io.execResult.bits.result.expect(expectedResult)
-      dut.io.execResult.bits.wid.expect(testWarpID)
-
+      dut.io.out.valid.expect(true.B)
+      dut.io.out.bits.result.expect(expectedResult)
+      dut.io.out.bits.warpID.expect(testWarpID)
+      dut.io.out.bits.rd.expect(1.U)
+      dut.io.out.bits.exception.expect(false.B)
     }
   }
 
-  it should "handle branch and jump instructions correctly" in {
-    simulate(new Execution(parameter), "executionpipetest2") { dut =>
+  it should "handle subtraction operations correctly" in {
+    simulate(new Execution(parameter), "execution_alu_sub") { dut =>
       // Initialize
       dut.io.clock.step()
       dut.io.reset.poke(true.B)
       dut.io.clock.step()
       dut.io.reset.poke(false.B)
 
-      // Test BEQ instruction
-      val testWarpID = 0.U
-      val testPC = 0x1000.U
-      val testInstruction = "h_00208263".U // BEQ rs1, rs2, offset
+      // Test sub operation
+      val testWarpID = 1.U
+      val rs1Data = 2000.U
+      val rs2Data = 1000.U
+      val expectedResult = 1000.U
 
-      // Setup instruction
-      dut.io.instruction_in.wid.poke(testWarpID)
-      dut.io.instruction_in.pc.poke(testPC)
-      dut.io.instruction_in.instruction.poke(testInstruction)
+      // Setup input signals
+      dut.io.in.valid.poke(true.B)
+      dut.io.in.bits.warpID.poke(testWarpID)
+      dut.io.in.bits.funct3.poke("b010".U) // SUB
+      dut.io.in.bits.funct7.poke("b0100000".U)
+      dut.io.in.bits.rs1Data.poke(rs1Data)
+      dut.io.in.bits.rs2Data.poke(rs2Data)
+      dut.io.in.bits.rd.poke(2.U)
+      dut.io.in.bits.pc.poke(0x1004.U)
 
-      // Setup register values
-      dut.io.coreResult.valid.poke(true.B)
-
-      // Wait for execution
       dut.io.clock.step(3)
 
-      // Check branch taken
-      dut.io.execResult.valid.expect(true.B)
+      // Check result
+      dut.io.out.valid.expect(true.B)
+      dut.io.out.bits.result.expect(expectedResult)
+      dut.io.out.bits.warpID.expect(testWarpID)
+      dut.io.out.bits.rd.expect(2.U)
+      dut.io.out.bits.exception.expect(false.B)
+    }
+  }
+
+  it should "handle pipeline bubbles correctly" in {
+    simulate(new Execution(parameter)) { dut =>
+      // Initialize
+      dut.io.clock.step()
+      dut.io.reset.poke(true.B)
+      dut.io.clock.step()
+      dut.io.reset.poke(false.B)
+
+      // Test invalid input (bubble)
+      dut.io.in.valid.poke(false.B)
+
+      dut.io.clock.step()
+
+      // Check that output is invalid
+      dut.io.out.valid.expect(false.B)
     }
   }
 }
