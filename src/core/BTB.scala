@@ -9,7 +9,7 @@ import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import chisel3.util._
 
-import org.chipsalliance.rocketv.{PopCountAtLeast, PseudoLRU, SetAssocLRU}
+import org.chipsalliance.rocketv.{PopCountAtLeast, PseudoLRU}
 
 object BHTParameter {
   implicit def rwP: upickle.default.ReadWriter[BHTParameter] = upickle.default.macroRW[BHTParameter]

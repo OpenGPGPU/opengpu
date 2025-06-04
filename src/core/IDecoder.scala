@@ -6,11 +6,11 @@ import chisel3._
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import chisel3.util.BitPat
-import chisel3.util.experimental.decode.{BoolDecodeField, DecodeField, DecodePattern, DecodeTable}
+import chisel3.util.experimental.decode.{BoolDecodeField, DecodeField, DecodeTable}
 import org.chipsalliance.rvdecoderdb.{Encoding, Instruction, InstructionSet}
 
 import org.chipsalliance.rocketv.{FPUHelper, RocketDecodePattern, UOP, UOPDecodeField}
-import org.chipsalliance.t1.rtl.decoder.{Decoder, DecoderParam}
+import org.chipsalliance.t1.rtl.decoder.DecoderParam
 import org.chipsalliance.rocketv.RVCExpanderParameter
 
 object CustomInstructions {
@@ -69,9 +69,9 @@ case class OGPUDecoderParameter(
   private def hasAnySetIn(sets: String*): Boolean =
     sets.exists(set => instructions.flatMap(_.instructionSets.map(_.name)).exists(_.contains(set)))
 
-  private def xLen32: Boolean = instructions.map(_.instructionSet.name).exists(_.startsWith("rv32_"))
+  
 
-  private def xLen64: Boolean = instructions.map(_.instructionSet.name).exists(_.startsWith("rv64_"))
+  
 
   private def fLen0: Boolean = !fLen32 && !fLen64
 

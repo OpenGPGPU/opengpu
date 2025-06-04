@@ -2,11 +2,8 @@ package ogpu.core
 
 import chisel3._
 import chisel3.util._
-import chisel3.experimental.hierarchy.{instantiable, Instance, Instantiate}
-import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
-import chisel3.util.experimental.decode.DecodeBundle
-import org.chipsalliance.t1.rtl.decoder.{Decoder, DecoderParam}
-import ogpu.vector._
+import chisel3.experimental.hierarchy.instantiable
+import chisel3.experimental.SerializableModule
 import org.chipsalliance.rocketv.{ALU, ALUParameter}
 
 class ALUExecutionInterface(parameter: OGPUDecoderParameter) extends Bundle {

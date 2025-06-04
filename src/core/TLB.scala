@@ -5,9 +5,9 @@
 package ogpu.core
 
 import chisel3._
-import chisel3.experimental.hierarchy.{instantiable, Instance, Instantiate}
+import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
-import chisel3.util.{log2Ceil, Cat, Decoupled, Enum, Fill, Mux1H, OHToUInt, PopCount, PriorityEncoder, UIntToOH, Valid}
+import chisel3.util.{log2Ceil, Cat, Decoupled, Enum, Fill, Mux1H, OHToUInt, PriorityEncoder, UIntToOH, Valid}
 import org.chipsalliance.rocketv.{PopCountAtLeast, PseudoLRU, SetAssocLRU}
 object TLBParameter {
   implicit def rwP: upickle.default.ReadWriter[TLBParameter] = upickle.default.macroRW[TLBParameter]

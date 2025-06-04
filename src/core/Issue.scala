@@ -2,8 +2,7 @@ package ogpu.core
 
 import chisel3._
 import chisel3.util._
-import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
-import chisel3.experimental.hierarchy.{instantiable, Instance, Instantiate}
+import chisel3.experimental.SerializableModule
 
 // Bundle for register file read ports
 class RegFileReadPort(xLen: Int) extends Bundle {

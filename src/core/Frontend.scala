@@ -5,14 +5,12 @@
 package ogpu.core
 
 import chisel3._
-import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
+import chisel3.experimental.hierarchy.{instantiable, Instantiate}
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
-import chisel3.properties.{AnyClassType, Class, ClassType, Property}
 import chisel3.util._
 import chisel3.util.circt.ClockGate
 import chisel3.util.experimental.BitSet
 import org.chipsalliance.amba.axi4.bundle.{AXI4BundleParameter, AXI4ROIrrevocable, AXI4RWIrrevocable}
-import org.chipsalliance.rocketv.{ImmGen, RVCDecoder}
 
 object FrontendParameter {
   implicit def bitSetP: upickle.default.ReadWriter[BitSet] = upickle.default

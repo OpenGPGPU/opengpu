@@ -2,11 +2,11 @@ package ogpu.core
 
 import chisel3._
 import chisel3.util._
-import chisel3.experimental.hierarchy.{instantiable, Instance, Instantiate}
+import chisel3.experimental.hierarchy.Instantiate
 import chisel3.experimental.SerializableModule
 import chisel3.util.experimental.decode.DecodeBundle
 import org.chipsalliance.t1.rtl.decoder.{Decoder, DecoderParam}
-import org.chipsalliance.rocketv.{RVCDecoder, RVCExpander, RVCExpanderInterface}
+import org.chipsalliance.rocketv.RVCExpander
 import ogpu.vector._
 
 class InstructionBundle(
@@ -82,8 +82,6 @@ class DecodePipe(val parameter: OGPUDecoderParameter)
 
   // Connect decoders to expanded instruction
   coreDecoder.io.instruction := expanded_bundle.instruction
-  fpuDecoder.foreach(_.io.instruction := expanded_bundle.instruction)
-  vectorDecoder.foreach(_.decodeInput := expanded_bundle.instruction)
 
   // Pipeline registers for decode results
   val coreDecode = RegEnable(coreDecoder.io.output, stage1Valid && stage1Ready)
@@ -109,9 +107,9 @@ class DecodePipe(val parameter: OGPUDecoderParameter)
     }
   }
   vectorDecoder.map { vector =>
-    vector.decodeInput := expanded_bundle.instruction
+    vector.instruction := expanded_bundle.instruction // Changed from decodeInput
     when(stage1Valid && stage1Ready) {
-      vectorDecode := vector.decodeResult
+      vectorDecode := vector.output // Changed from decodeResult
     }
   }
 

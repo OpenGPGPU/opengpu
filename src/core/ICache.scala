@@ -5,9 +5,8 @@
 package ogpu.core
 
 import chisel3._
-import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
+import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
-import chisel3.properties.{AnyClassType, Class, ClassType, Property}
 import chisel3.util.random.LFSR
 import chisel3.util._
 import org.chipsalliance.rocketv.{Code, ICacheErrors, ICachePerfEvents, ICacheReq, ICacheResp, IdentityCode}

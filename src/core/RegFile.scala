@@ -2,10 +2,8 @@ package ogpu.core
 
 import chisel3._
 import chisel3.util._
-import chisel3.experimental.hierarchy.{instantiable, Instance, Instantiate}
+import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
-import chisel3.util.experimental.decode.DecodeBundle
-import org.chipsalliance.t1.rtl.decoder.{Decoder, DecoderParam}
 
 class RegFileIO(dataWidth: Int) extends Bundle {
   val clock = Input(Clock())

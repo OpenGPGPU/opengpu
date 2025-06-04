@@ -16,8 +16,8 @@ class VectorDecoderWrapper(param: DecoderParam) extends Module {
 
   withClock(io.clock) {
     val decoder = Module(new VectorDecoder(param))
-    decoder.decodeInput := io.decodeInput
-    io.decodeResult := decoder.decodeResult
+    decoder.instruction := io.decodeInput
+    io.decodeResult := decoder.output
   }
 }
 

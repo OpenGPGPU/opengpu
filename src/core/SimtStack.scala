@@ -1,12 +1,10 @@
 package ogpu.core
 
 import chisel3._
-import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
+import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
-import chisel3.properties.{AnyClassType, Class, ClassType, Property}
 import chisel3.util._
 import chisel3.util.experimental.BitSet
-import org.chipsalliance.rocketv.RegFile
 
 object SimtStackParameter {
   implicit def bitSetP: upickle.default.ReadWriter[BitSet] = upickle.default

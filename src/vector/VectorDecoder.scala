@@ -4,8 +4,8 @@
 package ogpu.vector
 
 import chisel3._
-import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
-import chisel3.properties.{AnyClassType, Class, ClassType, Property}
+import chisel3.experimental.hierarchy.{instantiable, public}
+import chisel3.properties.{AnyClassType, Class, Property}
 import chisel3.util.experimental.decode._
 import org.chipsalliance.t1.rtl.decoder.{Decoder, DecoderParam}
 
@@ -27,11 +27,11 @@ class VectorDecoder(param: DecoderParam) extends Module {
   // om := omInstance.getPropertyReference
 
   @public
-  val decodeInput: UInt = IO(Input(UInt(32.W)))
+  val instruction: UInt = IO(Input(UInt(32.W)))
   @public
-  val decodeResult: DecodeBundle = IO(Output(new DecodeBundle(Decoder.allFields(param))))
+  val output: DecodeBundle = IO(Output(new DecodeBundle(Decoder.allFields(param))))
 
   // omInstance.instructionsIn := Property(Decoder.allDecodePattern(param).map(_.om.asAnyClassType))
 
-  decodeResult := Decoder.decode(param)(decodeInput)
+  output := Decoder.decode(param)(instruction)
 }

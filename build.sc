@@ -6,6 +6,10 @@ import mill._
 import mill.scalalib._
 import mill.scalalib.publish._
 import mill.scalalib.scalafmt._
+import mill.scalalib.api.ZincWorkerUtil
+import mill.scalalib.scalafmt._
+import $ivy.`com.goyeau::mill-scalafix::0.4.2`
+import com.goyeau.mill.scalafix.ScalafixModule
 
 import mill.util.Jvm
 import coursier.maven.MavenRepository
@@ -14,9 +18,6 @@ import $file.depends.arithmetic.common
 import $file.depends.`chisel-interface`.common
 import $file.depends.`hardfloat`.common
 import $file.depends.`rvdecoderdb`.common
-// import $file.depends.`rocket-chip`.common
-// import $file.depends.`cde`.common
-// import $file.depends.`diplomacy`.common
 import $file.common
 
 object v {
@@ -28,6 +29,7 @@ object v {
   val spire    = ivy"org.typelevel::spire:latest.integration"
   val evilplot = ivy"io.github.cibotech::evilplot:latest.integration"
   val scalaReflect = ivy"org.scala-lang:scala-reflect:${scala}"
+  val chiselPlugin = ivy"org.chipsalliance:::chisel-plugin:6.6.0"
 }
 
 object chisel extends Chisel
@@ -229,7 +231,10 @@ trait T1 extends millbuild.common.T1Module with ScalafmtModule {
 
 object ogpu extends OGPU
 
-trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule with SbtModule {
+trait OGPU extends millbuild.common.OGPUModule
+    with ScalafmtModule
+    with SbtModule
+    with ScalafixModule { // Add ScalafixModule
   override def millSourcePath = os.pwd
   def scalaVersion            = v.scala
 
@@ -246,7 +251,7 @@ trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule with SbtModul
   def chiselModule    = Some(chisel)
   def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
   def chiselIvy       = None
-  def chiselPluginIvy = None
+  def chiselPluginIvy = Some(v.chiselPlugin)
 
   override def sources = T.sources {
     super.sources() ++ Seq(PathRef(this.millSourcePath / "src"))
@@ -259,9 +264,20 @@ trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule with SbtModul
     println(s"Lines of code(LOC): ${lineCount()} !!!")
   }
 
+  // Add scalafix configuration
+  // def scalafixIvyDeps = Agg(
+  //   ivy"com.github.liancheng::organize-imports:0.6.0",
+  //   ivy"com.github.vovapolu::implicit-conversions-safety:0.1.1"
+  // )
+  def scalacOptions = Seq(
+    "-Ywarn-unused",
+    "-Ymacro-annotations",
+    "-Wunused:imports"
+  )
   object test extends SbtTests
     with TestModule.ScalaTest
-    with ScalafmtModule {
+    with ScalafmtModule
+    with ScalafixModule { // Add ScalafixModule to test
 
     override def forkArgs = Seq("-Xmx6G", "-Xss256m")
 
@@ -270,6 +286,17 @@ trait OGPU extends millbuild.common.OGPUModule with ScalafmtModule with SbtModul
     }
     override def ivyDeps = super.ivyDeps() ++ Agg(
       ivy"org.scalatest::scalatest:3.2.19"
+    )
+
+    def scalafixIvyDeps = Agg(
+      ivy"com.github.liancheng::organize-imports:0.6.0",
+      ivy"com.github.vovapolu::implicit-conversions-safety:0.1.1"
+    )
+
+    def scalacOptions = Seq(
+      "-Ywarn-unused",
+      "-Ymacro-annotations",
+      "-Wunused:imports"
     )
   }
 }

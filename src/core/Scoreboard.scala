@@ -2,9 +2,8 @@ package ogpu.core
 
 import chisel3._
 import chisel3.util._
-import chisel3.experimental.hierarchy.{instantiable, Instance, Instantiate}
+import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
-import chisel3.util.experimental.decode.DecodeBundle
 
 class ScoreboardIO extends Bundle {
   val clock = Input(Clock())

@@ -7,7 +7,7 @@ package ogpu.core
 
 import chisel3._
 import chisel3.util._
-import org.chipsalliance.rocketv.{Code, ICacheErrors, ICachePerfEvents, ICacheReq, ICacheResp, IdentityCode}
+import org.chipsalliance.rocketv.ICacheErrors
 
 /** Compute Unit Task Bundle
   *
