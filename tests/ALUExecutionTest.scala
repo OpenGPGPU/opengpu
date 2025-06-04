@@ -13,10 +13,10 @@ class ExecutionPipeTest extends AnyFlatSpec {
     32
   )
 
-  behavior.of("Execution")
+  behavior.of("ALUExecution")
 
   it should "handle basic ALU operations correctly" in {
-    simulate(new Execution(parameter), "execution_alu_add") { dut =>
+    simulate(new ALUExecution(parameter), "execution_alu_add") { dut =>
       // Initialize
       dut.io.clock.step()
       dut.io.reset.poke(true.B)
@@ -51,7 +51,7 @@ class ExecutionPipeTest extends AnyFlatSpec {
   }
 
   it should "handle subtraction operations correctly" in {
-    simulate(new Execution(parameter), "execution_alu_sub") { dut =>
+    simulate(new ALUExecution(parameter), "execution_alu_sub") { dut =>
       // Initialize
       dut.io.clock.step()
       dut.io.reset.poke(true.B)
@@ -86,7 +86,7 @@ class ExecutionPipeTest extends AnyFlatSpec {
   }
 
   it should "handle pipeline bubbles correctly" in {
-    simulate(new Execution(parameter)) { dut =>
+    simulate(new ALUExecution(parameter)) { dut =>
       // Initialize
       dut.io.clock.step()
       dut.io.reset.poke(true.B)

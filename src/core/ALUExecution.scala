@@ -274,9 +274,35 @@ class WarpRegFile(val parameter: WarpRegFileParameter)
   io.readData(1) := readDataVec1(io.read(1).warpID)
 }
 
+class ALUExecutionInterface(parameter: OGPUDecoderParameter) extends Bundle {
+  val clock = Input(Clock())
+  val reset = Input(Bool())
+
+  // Input from Issue stage
+  val in = Flipped(DecoupledIO(new Bundle {
+    val warpID = UInt(log2Ceil(parameter.warpNum).W)
+    val execType = UInt(2.W)
+    val funct3 = UInt(3.W)
+    val funct7 = UInt(7.W)
+    val pc = UInt(parameter.xLen.W)
+    val rs1Data = UInt(parameter.xLen.W)
+    val rs2Data = UInt(parameter.xLen.W)
+    val rd = UInt(5.W)
+    val isRVC = Bool()
+  }))
+
+  // Execution results output
+  val out = DecoupledIO(new Bundle {
+    val result = UInt(parameter.xLen.W)
+    val warpID = UInt(log2Ceil(parameter.warpNum).W)
+    val rd = UInt(5.W)
+    val exception = Bool()
+  })
+}
+
 @instantiable
-class Execution(val parameter: OGPUDecoderParameter)
-    extends FixedIORawModule(new ExecutionInterface(parameter))
+class ALUExecution(val parameter: OGPUDecoderParameter)
+    extends FixedIORawModule(new ALUExecutionInterface(parameter))
     with SerializableModule[OGPUDecoderParameter]
     with Public
     with ImplicitClock
