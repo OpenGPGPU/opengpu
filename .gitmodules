@@ -19,3 +19,6 @@
 [submodule "depends/riscv-opcodes"]
 	path = depends/riscv-opcodes
 	url = https://github.com/riscv/riscv-opcodes
+[submodule "depends/fpnew"]
+	path = depends/fpnew
+	url = https://github.com/ThalesGroup/fpnew
