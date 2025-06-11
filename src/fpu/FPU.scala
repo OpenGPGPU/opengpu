@@ -1,7 +1,8 @@
 package ogpu.fpu
 
 import chisel3._
-import chisel3.experimental.ExtModule
+import chisel3.experimental._
+import chisel3.util._
 
 // 定义 fpnew_pkg 类型，实际值可能需要根据 fpnew_pkg.sv 进行调整
 object FpnewPkg {
@@ -56,7 +57,7 @@ class FpnewTop(
   val expWidth:    Int = 8,
   val sigWidth:    Int = 24,
   val numOperands: Int = 3 // 对应 fpnew_top.sv 中的 NUM_OPERANDS
-) extends ExtModule(
+) extends BlackBox(
       Map(
         // "Features" 和 "Implementation" 是复杂的 SystemVerilog 结构体，
         // 在 ExtModule 中直接传递比较困难。这里假设 fpnew_top.sv 会使用默认值，
@@ -70,11 +71,14 @@ class FpnewTop(
         // 例如： "Features_Width" -> (expWidth + sigWidth)
         //       "Features_EnableNanBox" -> 1 // 假设使能
       )
-    ) {
+    )
+    with HasBlackBoxResource
+    with HasBlackBoxPath {
   val io = IO(new FpnewTopIO(expWidth + sigWidth, numOperands))
-
   // Verilog模块名需要与SystemVerilog文件中的模块名完全一致
   override def desiredName = "fpnew_top"
+
+  addPath("./depends/fpnew/src/fpnew_top.sv")
 }
 
 class FPU(val expWidth: Int = 8, val sigWidth: Int = 24) extends Module {
