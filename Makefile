@@ -1,5 +1,6 @@
 init:
 	git submodule update --init
+	cd depends/fpnew && git submodule update --init
 
 format: init
 	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.reformat
