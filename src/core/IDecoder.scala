@@ -69,10 +69,6 @@ case class OGPUDecoderParameter(
   private def hasAnySetIn(sets: String*): Boolean =
     sets.exists(set => instructions.flatMap(_.instructionSets.map(_.name)).exists(_.contains(set)))
 
-  
-
-  
-
   private def fLen0: Boolean = !fLen32 && !fLen64
 
   private def fLen32: Boolean = hasAnySetIn("rv_f", "rv32_f", "rv64_f")

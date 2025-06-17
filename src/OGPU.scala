@@ -8,7 +8,6 @@ package ogpu.rtl
 import chisel3.experimental.SerializableModuleParameter
 import org.chipsalliance.rvdecoderdb.Instruction
 
-
 /** OGPUParameter defines the configuration parameters for the OGPU module
   *
   * @param dLen
