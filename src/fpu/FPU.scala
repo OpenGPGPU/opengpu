@@ -10,8 +10,6 @@ import ogpu.core._
 class FpnewTopIO(parameter: OGPUDecoderParameter) extends Bundle {
   val clk_i = Input(Clock())
   val rst_ni = Input(Bool())
-
-  // Input signals
   val operands_i_flat = Input(UInt((parameter.xLen * 3).W))
   val rnd_mode_i = Input(UInt(3.W))
   val op_i = Input(UInt(5.W))
@@ -20,23 +18,15 @@ class FpnewTopIO(parameter: OGPUDecoderParameter) extends Bundle {
   val dst_fmt_i = Input(UInt(2.W))
   val int_fmt_i = Input(UInt(2.W))
   val vectorial_op_i = Input(Bool())
-  val tag_i = Input(UInt(5.W))
-
-  // Input Handshake
+  val tag_i = Input(Bool())
   val in_valid_i = Input(Bool())
   val in_ready_o = Output(Bool())
   val flush_i = Input(Bool())
-
-  // Output signals
   val result_o = Output(UInt(parameter.xLen.W))
   val status_o = Output(UInt(5.W))
-  val tag_o = Output(UInt(5.W))
-
-  // Output handshake
+  val tag_o = Output(Bool())
   val out_valid_o = Output(Bool())
   val out_ready_i = Input(Bool())
-
-  // Indication of valid data in flight
   val busy_o = Output(Bool())
 }
 
@@ -45,7 +35,7 @@ class fpnew_wrapper(
   val numOperands: Int = 3)
     extends BlackBox(
       Map(
-        "WIDTH" -> 32,
+        "WIDTH" -> parameter.xLen,
         "NUM_OPERANDS" -> numOperands
       )
     )
@@ -73,15 +63,12 @@ class FPU(val parameter: OGPUDecoderParameter) extends Module {
     val int_fmt = Input(UInt(2.W))
     val vectorial_op = Input(Bool())
     val tag_i = Input(UInt(5.W))
-
     val in_valid = Input(Bool())
     val in_ready = Output(Bool())
     val flush = Input(Bool())
-
     val result = Output(UInt(parameter.xLen.W))
     val status = Output(UInt(5.W))
     val tag_o = Output(UInt(5.W))
-
     val out_valid = Output(Bool())
     val out_ready = Input(Bool())
     val busy = Output(Bool())
@@ -91,7 +78,8 @@ class FPU(val parameter: OGPUDecoderParameter) extends Module {
 
   fpnew.io.clk_i := io.clk_i
   fpnew.io.rst_ni := io.rst_ni
-  fpnew.io.operands_i_flat := io.op_c ## io.op_b ## io.op_a // Concatenate operands in the order expected by fpnew
+  // 拼接顺序与 wrapper 保持一致
+  fpnew.io.operands_i_flat := io.op_c ## io.op_b ## io.op_a
   fpnew.io.rnd_mode_i := io.rnd_mode
   fpnew.io.op_i := io.op
   fpnew.io.op_mod_i := io.op_mod
@@ -103,14 +91,11 @@ class FPU(val parameter: OGPUDecoderParameter) extends Module {
   fpnew.io.in_valid_i := io.in_valid
   io.in_ready := fpnew.io.in_ready_o
   fpnew.io.flush_i := io.flush
-
   io.result := fpnew.io.result_o
   io.status := fpnew.io.status_o
   io.tag_o := fpnew.io.tag_o
-
   io.out_valid := fpnew.io.out_valid_o
   fpnew.io.out_ready_i := io.out_ready
-
   io.busy := fpnew.io.busy_o
 }
 

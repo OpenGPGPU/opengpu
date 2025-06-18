@@ -43,7 +43,8 @@ object VCDHackedEphemeralSimulator extends PeekPokeAPI {
     val commonCompilationSettings = CommonCompilationSettings()
     // HACK to enable VCD dumping
     val backendSpecificCompilationSettings = verilator.Backend.CompilationSettings(
-      traceStyle = Some(verilator.Backend.CompilationSettings.TraceStyle.Vcd(traceUnderscore = true))
+      traceStyle = Some(verilator.Backend.CompilationSettings.TraceStyle.Vcd(traceUnderscore = true)),
+      disableFatalExitOnWarnings = true
     )
 
     // HACK don't delete temporary workspace to keep VCD
