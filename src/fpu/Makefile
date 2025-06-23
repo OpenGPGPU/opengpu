@@ -10,7 +10,7 @@ UNAME_S := $(shell uname -s)
 
 ifeq ($(UNAME_S),Darwin)
     PLATFORM := macos
-    SED_CMD := sed -i ''
+    SED_CMD := sed -i''
 else
     PLATFORM := linux
     SED_CMD := sed -i
@@ -136,10 +136,8 @@ ALL_VSRCS = $(FPNEW_PKGS) $(FPNEW_VSRCS) $(FPNEW_WRAPPER)
 
 
 $(PREPROC_VERILOG): $(ALL_VSRCS)
-	mkdir -p $(dir $(PREPROC_VERILOG))
 	cat  $(ALL_VSRCS)  > combined.sv
-	$(SED_CMD) "/include \"common/d" combined.sv
+	$(SED_CMD) '/include \"common/d' combined.sv
 
 clean:
-	rm -rf $(PREPROC_VERILOG)
 	rm -rf combined.sv def.v undef.v

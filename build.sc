@@ -39,17 +39,6 @@ trait Chisel extends millbuild.depends.chisel.build.Chisel {
   override def millSourcePath = os.pwd / "depends" / "chisel"
 }
 
-// object macros extends Macros
-// 
-// trait Macros
-//   extends millbuild.depends.`rocket-chip`.common.MacrosModule
-//     with ScalaModule {
-// 
-//   def scalaVersion: T[String] = T(v.scala)
-// 
-//   def scalaReflectIvy = v.scalaReflect
-// }
-
 object arithmetic extends Arithmetic
 
 trait Arithmetic extends millbuild.depends.arithmetic.common.ArithmeticModule {
@@ -170,64 +159,21 @@ trait T1 extends millbuild.common.T1Module with ScalafmtModule {
   def chiselPluginIvy = None
 }
 
-// object cde extends CDE
-// 
-// trait CDE
-//   extends millbuild.depends.cde.common.CDEModule  with ScalaModule {
-//   override def millSourcePath = os.pwd / "depends" / "cde" / "cde"
-// 
-//   def scalaVersion: T[String] = T(v.scala)
-// 
-// }
-// 
-// object diplomacy extends Diplomacy
-// 
-// trait Diplomacy
-//     extends millbuild.depends.diplomacy.common.DiplomacyModule {
-// 
-//   override def scalaVersion: T[String] = T(v.scala)
-// 
-//   override def millSourcePath = os.pwd / "depends" / "diplomacy" / "diplomacy"
-//   def sourcecodeIvy = v.sourcecode
-// 
-// 
-//   def chiselModule    = Some(chisel)
-//   def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
-//   def chiselIvy       = None
-//   def chiselPluginIvy = None
-// 
-//   def cdeModule = cde
-// }
+object fpuVerilogGen extends ScalaModule {
+  def scalaVersion = v.scala
+  override def sources = T.sources()
 
-// object rocketchip extends RocketChip
-
-// trait RocketChip
-//   extends millbuild.depends.`rocket-chip`.common.RocketChipModule
-//     with SbtModule {
-//   def scalaVersion: T[String] = T(v.scala)
-//   def sourcecodeIvy = v.sourcecode
-//   def mainargsIvy = v.mainargs
-// 
-//   override def millSourcePath = os.pwd / "depends" / "rocket-chip"
-// 
-//   def chiselModule    = Some(chisel)
-//   def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
-//   def chiselIvy       = None
-//   def chiselPluginIvy = None
-// 
-//   def hardfloatModule = hardfloat
-// 
-//   def cdeModule = cde
-// 
-//   def macrosModule = macros
-// 
-//   def diplomacyModule = diplomacy
-// 
-//   def diplomacyIvy = None
-// 
-// 
-//   def json4sJacksonIvy = ivy"org.json4s::json4s-jackson:4.0.5"
-// }
+  override def compile = T {
+    val makefileDir = os.pwd / "src" / "fpu"
+    val result = os.proc("make", "-C", makefileDir.toString).call()
+    println(s"Makefile ret ${result}")
+    if (result.exitCode != 0) {
+      throw new Exception(s"Makefile in $makefileDir failed!")
+    }
+    println("Makefile executed successfully.")
+    super.compile()
+  }
+}
 
 object ogpu extends OGPU
 
@@ -245,6 +191,7 @@ trait OGPU extends millbuild.common.OGPUModule
   def stdlibModule      = stdlib
   def T1Module          = t1
   def RocketvModule     = rocketv
+  def fpuModule        = fpuVerilogGen
 
   def riscvOpcodesPath  = T.input(PathRef(os.pwd / "depends" / "riscv-opcodes"))
 
@@ -263,21 +210,17 @@ trait OGPU extends millbuild.common.OGPUModule
   def printLineCount() = T.command {
     println(s"Lines of code(LOC): ${lineCount()} !!!")
   }
-
-  // Add scalafix configuration
-  // def scalafixIvyDeps = Agg(
-  //   ivy"com.github.liancheng::organize-imports:0.6.0",
-  //   ivy"com.github.vovapolu::implicit-conversions-safety:0.1.1"
-  // )
+  
   def scalacOptions = Seq(
     "-Ywarn-unused",
     "-Ymacro-annotations",
     "-Wunused:imports"
   )
+
   object test extends SbtTests
     with TestModule.ScalaTest
     with ScalafmtModule
-    with ScalafixModule { // Add ScalafixModule to test
+    with ScalafixModule {
 
     override def forkArgs = Seq("-Xmx6G", "-Xss256m")
 
