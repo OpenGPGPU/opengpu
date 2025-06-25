@@ -138,6 +138,7 @@ ALL_VSRCS = $(FPNEW_PKGS) $(FPNEW_VSRCS) $(FPNEW_WRAPPER)
 $(PREPROC_VERILOG): $(ALL_VSRCS)
 	cat  $(ALL_VSRCS)  > combined.sv
 	$(SED_CMD) '/include \"common/d' combined.sv
+	mv combined.sv $(OUT_DIR)/.
 
 clean:
 	rm -rf combined.sv def.v undef.v

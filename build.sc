@@ -165,12 +165,12 @@ object fpuVerilogGen extends ScalaModule {
 
   override def compile = T {
     val makefileDir = os.pwd / "src" / "fpu"
-    val result = os.proc("make", "-C", makefileDir.toString).call()
-    println(s"Makefile ret ${result}")
-    if (result.exitCode != 0) {
-      throw new Exception(s"Makefile in $makefileDir failed!")
+    val outDir = T.dest
+    os.makeDir.all(outDir)
+    val result = os.proc("make", s"OUT_DIR=$outDir", "-C", makefileDir.toString).call()
+    if (!os.exists(outDir / "combined.sv")) {
+      throw new Exception("combined.sv not generated!")
     }
-    println("Makefile executed successfully.")
     super.compile()
   }
 }
