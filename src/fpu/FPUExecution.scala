@@ -13,15 +13,25 @@ class FPUExecutionInterface(parameter: OGPUDecoderParameter) extends Bundle {
 
   val in = Flipped(DecoupledIO(new Bundle {
     val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val execType = UInt(2.W)
-    val operation = UInt(4.W)
-    val operation_i = Bool()
+    // val execType = UInt(2.W) // Removed as it's now part of 'op'
+    // val operation = UInt(4.W) // Removed as it's now part of 'rnd_mode' and 'op'
+    // val operation_i = Bool() // Removed as it's now 'op_mod'
     val pc = UInt(parameter.xLen.W)
     val rs1Data = UInt(parameter.xLen.W)
     val rs2Data = UInt(parameter.xLen.W)
     val rs3Data = UInt(parameter.xLen.W)
     val rd = UInt(5.W)
     val isRVC = Bool()
+    // FPU specific inputs
+    val rnd_mode = UInt(3.W)
+    val op = UInt(5.W)
+    val op_mod = Bool()
+    val src_fmt = UInt(2.W)
+    val dst_fmt = UInt(2.W)
+    val int_fmt = UInt(2.W)
+    val vectorial_op = Bool()
+    val tag_i = UInt(5.W)
+    val flush = Bool()
   }))
 
   val out = DecoupledIO(new Bundle {
@@ -60,17 +70,17 @@ class FPUExecution(val parameter: OGPUDecoderParameter)
   fpu.io.op_a := io.in.bits.rs1Data
   fpu.io.op_b := io.in.bits.rs2Data
   fpu.io.op_c := io.in.bits.rs3Data
-  fpu.io.rnd_mode := 0.U
-  fpu.io.op := 0.U
-  fpu.io.op_mod := false.B
-  fpu.io.src_fmt := 0.U
-  fpu.io.dst_fmt := 0.U
-  fpu.io.int_fmt := 0.U
-  fpu.io.vectorial_op := false.B
-  fpu.io.tag_i := 0.U
+  fpu.io.rnd_mode := io.in.bits.rnd_mode
+  fpu.io.op := io.in.bits.op
+  fpu.io.op_mod := io.in.bits.op_mod
+  fpu.io.src_fmt := io.in.bits.src_fmt
+  fpu.io.dst_fmt := io.in.bits.dst_fmt
+  fpu.io.int_fmt := io.in.bits.int_fmt
+  fpu.io.vectorial_op := io.in.bits.vectorial_op
+  fpu.io.tag_i := io.in.bits.tag_i
   fpu.io.in_valid := io.in.valid
   fpu.io.out_ready := true.B
-  fpu.io.flush := false.B
+  fpu.io.flush := io.in.bits.flush
 
   when(io.in.valid && fpu.io.out_valid) {
     outValidReg := true.B
