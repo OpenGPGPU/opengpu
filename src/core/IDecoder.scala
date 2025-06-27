@@ -114,7 +114,24 @@ case class OGPUDecoderParameter(
     amo,
     aluFn
   ) ++
-    (if (useFPU) Seq(fp, rfs1, rfs2, rfs3, wfd, dp) else None) ++
+    (if (useFPU)
+       Seq(
+         fp,
+         rfs1,
+         rfs2,
+         rfs3,
+         wfd,
+         dp,
+         rnd_mode,
+         op,
+         op_mod,
+         src_fmt,
+         dst_fmt,
+         int_fmt,
+         vectorial_op,
+         tag_i
+       )
+     else None) ++
     (if (useMulDiv) if (pipelinedMul) Seq(mul, div) else Seq(div) else None) ++
     (if (useVector) Seq(vector, vectorLSU, vectorCSR, vectorReadFRs1) else None)
   private val Y = BitPat.Y()
@@ -136,7 +153,15 @@ case class OGPUDecoderParameter(
     ffma,
     fdiv,
     fsqrt,
-    fwflags
+    fwflags,
+    rnd_mode,
+    op,
+    op_mod,
+    src_fmt,
+    dst_fmt,
+    int_fmt,
+    vectorial_op,
+    tag_i
   )
 
   val coreTable: DecodeTable[RocketDecodePattern] = new DecodeTable[RocketDecodePattern](
@@ -387,7 +412,7 @@ case class OGPUDecoderParameter(
 
     override def genTable(op: RocketDecodePattern): BitPat = op.instruction.name match {
       // format: off
-      case i if Seq("fmin.d", "fsgnj.d", "fnmsub.d", "fadd.d", "fmsub.d", "fld", "fmul.d", "fmax.d", "fcvt.d.wu", "fnmadd.d", "fcvt.d.s", "fcvt.s.d", "fmadd.d", "fsgnjx.d", "fsgnjn.d", "fsub.d", "fsqrt.d", "fcvt.d.w", "fdiv.d", "fcvt.d.lu", "fmv.d.x", "fcvt.d.l", "fcvt.d.h", "fcvt.h.d", "fnmsub.s", "fsgnjx.s", "fmsub.s", "fsgnjn.s", "fdiv.s", "fmin.s", "fsqrt.s", "fmax.s", "fcvt.s.wu", "fmv.w.x", "fmadd.s", "fsgnj.s", "fadd.s", "fnmadd.s", "fcvt.s.w", "flw", "fmul.s", "fsub.s", "fcvt.s.lu", "fcvt.s.l", "fsgnjx.h", "fcvt.h.s", "fdiv.h", "fsgnj.h", "fmul.h", "fsub.h", "flh", "fadd.h", "fmax.h", "fsgnjn.h", "fcvt.s.h", "fcvt.h.wu", "fcvt.h.w", "fmsub.h", "fmin.h", "fsqrt.h", "fnmadd.h", "fmadd.h", "fnmsub.h", "fmv.h.x", "fcvt.h.lu", "fcvt.h.l").contains(i) => y
+      case i if Seq("fmin.d", "fsgnj.d", "fnmsub.d", "fadd.d", "fmsub.d", "fld", "fmul.d", "fmax.d", "fcvt.d.wu", "fnmadd.d", "fcvt.d.s", "fcvt.s.d", "fsd", "fmadd.d", "fsgnjx.d", "fsgnjn.d", "fsub.d", "fsqrt.d", "fcvt.d.w", "fdiv.d", "fcvt.d.lu", "fmv.d.x", "fcvt.d.l", "fcvt.d.h", "fcvt.h.d", "fnmsub.s", "fsgnjx.s", "fmsub.s", "fsgnjn.s", "fdiv.s", "fmin.s", "fsqrt.s", "fmax.s", "fcvt.s.wu", "fmv.w.x", "fmadd.s", "fsgnj.s", "fadd.s", "fsw", "fnmadd.s", "fcvt.s.w", "flw", "fmul.s", "fsub.s", "fcvt.s.lu", "fcvt.s.l", "fsgnjx.h", "fcvt.h.s", "fdiv.h", "fsgnj.h", "fmul.h", "fsub.h", "flh", "fadd.h", "fmax.h", "fsgnjn.h", "fcvt.s.h", "fcvt.h.wu", "fcvt.h.w", "fmsub.h", "fmin.h", "fsqrt.h", "fnmadd.h", "fmadd.h", "fnmsub.h", "fmv.h.x", "fcvt.h.lu", "fcvt.h.l").contains(i) => y
       case i if Seq("vfmv.f.s").contains(i) => y
       case _ => n
       // format: on
@@ -613,7 +638,7 @@ case class OGPUDecoderParameter(
 
     override def genTable(op: RocketDecodePattern): BitPat = (op.instruction.name, op) match {
       // format: off
-      case (i, _) if Seq("amomaxu.w", "amoand.w", "amoor.w", "amoxor.w", "amoswap.w", "lr.w", "amomax.w", "amoadd.w", "amomin.w", "amominu.w", "sc.w", "lr.d", "amomax.d", "amoswap.d", "amoxor.d", "amoand.d", "amomin.d", "amoor.d", "amoadd.d", "amomaxu.d", "amominu.d", "sc.d", "fld", "fsd", "fsw", "flw", "hsv.w", "hsv.b", "hfence.vvma", "hlv.hu", "hlvx.hu", "hlv.b", "hlvx.wu", "hlv.w", "hsv.h", "hlv.h", "hlv.bu", "hfence.gvma", "hsv.d", "hlv.d", "hlv.wu", "lhu", "sb", "lw", "add", "sw", "lh", "jalr", "lui", "lbu", "auipc", "addi", "lb", "jal", "sh", "ld", "addw", "sd", "lwu", "addiw", "sfence.vma", "fsh", "flh", "csrrc", "csrrci", "csrrs", "csrrw", "csrrsi", "csrrwi", "cdiscard.d.l1", "cflush.d.l1").contains(i) => UOPALU.add
+      case (i, _) if Seq("amomaxu.w", "amoand.w", "amoor.w", "amoxor.w", "amoswap.w", "lr.w", "amomax.w", "amoadd.w", "amomin.w", "amominu.w", "sc.w", "lr.d", "amomax.d", "amoswap.d", "amoxor.d", "amoand.d", "amomin.d", "amoor.d", "amoadd.d", "amomaxu.d", "amominu.d", "sc.d", "fld", "fsd", "fsw", "flw", "hsv.w", "hsv.b", "hfence.vvma", "hlv.hu", "hlvx.hu", "hlv.b", "hlvx.wu", "hlv.w", "hsv.h", "hlv.h", "hlv.bu", "hfence.gvma", "hsv.d", "hlv.d", "hlv.wu", "or", "srl", "ori", "lhu", "sltu", "sra", "sb", "lw", "add", "xor", "andi", "sltiu", "lh", "jalr", "lui", "lbu", "auipc", "addi", "lb", "jal", "sh", "sll", "srli", "srai", "slli", "ld", "addw", "sd", "sraiw", "lwu", "sllw", "sraw", "subw", "srlw", "addiw", "srliw", "slliw", "mulhsu", "rem", "div", "mul", "mulhu", "mulh", "remu", "divu", "remuw", "divw", "divuw", "mulw", "remw", "sfence.vma", "fsh", "flh", "csrrc", "csrrci", "csrrs", "csrrw", "csrrsi", "csrrwi", "cdiscard.d.l1", "cflush.d.l1").contains(i) => UOPALU.add
       case (i, _) if Seq("and", "andi").contains(i) => UOPALU.and
       case (i, _) if Seq("or", "ori").contains(i) => UOPALU.or
       case (i, _) if Seq("beq").contains(i) => UOPALU.seq
@@ -786,7 +811,7 @@ case class OGPUDecoderParameter(
     override def name: String = "ren1"
 
     override def genTable(op: RocketDecodePattern): BitPat = (op.instruction.name, op) match {
-      case (i, _) if Seq("fmv.x.h", "fclass.h", "fcvt.w.h", "fcvt.wu.h", "fcvt.l.h", "fcvt.lu.h", "fcvt.s.h", "fcvt.h.s", "feq.h", "flt.h", "fle.h", "fsgnj.h", "fsgnjn.h", "fsgnjx.h", "fmin.h", "fmax.h", "fadd.h", "fsub.h", "fmul.h", "fmadd.h", "fmsub.h", "fnmadd.h", "fnmsub.h", "fdiv.h", "fsqrt.h", "fmv.x.w", "fclass.s", "fcvt.w.s", "fcvt.wu.s", "fcvt.l.s", "fcvt.lu.s", "feq.s", "flt.s", "fle.s", "fsgnj.s", "fsgnjn.s", "fsgnjx.s", "fmin.s", "fmax.s", "fadd.s", "fsub.s", "fmul.s", "fmadd.s", "fmsub.s", "fnmadd.s", "fnmsub.s", "fdiv.s", "fsqrt.s", "fmv.x.d", "fclass.d", "fcvt.w.d", "fcvt.wu.d", "fcvt.l.d", "fcvt.lu.d", "fcvt.s.d", "fcvt.d.s", "feq.d", "flt.d", "fle.d", "fsgnj.d", "fsgnjn.d", "fsgnjx.d", "fmin.d", "fmax.d", "fadd.d", "fsub.d", "fmul.d", "fmadd.d", "fmsub.d", "fnmadd.d", "fnmsub.d", "fdiv.d", "fsqrt.d", "fcvt.h.d", "fcvt.d.h").contains(i) => y
+      case (i, _) if Seq("fmv.x.h", "fclass.h", "fcvt.w.h", "fcvt.wu.h", "fcvt.l.h", "fcvt.lu.h", "fcvt.s.h", "fcvt.h.s", "feq.h", "flt.h", "fle.h", "fsgnj.h", "fsgnjn.h", "fsgnjx.h", "fmin.h", "fmax.h", "fadd.h", "fsub.h", "fmul.h", "fmadd.h", "fmsub.h", "fnmadd.h", "fnmsub.h", "fdiv.h", "fsqrt.h", "fcvt.d.h").contains(i) => y
       case (_, p) if p.vectorReadFRegFile => y
       case _ => n
     }
@@ -931,6 +956,73 @@ case class OGPUDecoderParameter(
       case i if Seq("fcvt.h.w", "fcvt.h.wu", "fcvt.h.l", "fcvt.h.lu", "fcvt.w.h", "fcvt.wu.h", "fcvt.l.h", "fcvt.lu.h", "fcvt.s.h", "fcvt.h.s", "feq.h", "flt.h", "fle.h", "fmin.h", "fmax.h", "fadd.h", "fsub.h", "fmul.h", "fmadd.h", "fmsub.h", "fnmadd.h", "fnmsub.h", "fdiv.h", "fsqrt.h", "fcvt.s.w", "fcvt.s.wu", "fcvt.s.l", "fcvt.s.lu", "fcvt.w.s", "fcvt.wu.s", "fcvt.l.s", "fcvt.lu.s", "feq.s", "flt.s", "fle.s", "fmin.s", "fmax.s", "fadd.s", "fsub.s", "fmul.s", "fmadd.s", "fmsub.s", "fnmadd.s", "fnmsub.s", "fdiv.s", "fsqrt.s", "fcvt.d.w", "fcvt.d.wu", "fcvt.d.l", "fcvt.d.lu", "fcvt.w.d", "fcvt.wu.d", "fcvt.l.d", "fcvt.lu.d", "fcvt.s.d", "fcvt.d.s", "feq.d", "flt.d", "fle.d", "fmin.d", "fmax.d", "fadd.d", "fsub.d", "fmul.d", "fmadd.d", "fmsub.d", "fnmadd.d", "fnmsub.d", "fdiv.d", "fsqrt.d", "fcvt.h.d", "fcvt.d.h").contains(i) => y
       case _ => n
     }
+  }
+
+  object rnd_mode extends UOPDecodeField[RocketDecodePattern] {
+    override def name: String = "rnd_mode"
+    override def genTable(op: RocketDecodePattern): BitPat = op.instruction.name match {
+      case "fadd.s" | "fsub.s" | "fmul.s" | "fdiv.s" | "fsqrt.s" | "fmadd.s" | "fnmadd.s" | "fmsub.s" | "fnmsub.s" =>
+        BitPat("b000") // 默认RNE，实际可根据指令或op内容调整
+      case _ => BitPat("b000") // 其它浮点指令默认RNE
+    }
+    override def uopType = new UOP { def width = 3 }
+  }
+
+  object op extends UOPDecodeField[RocketDecodePattern] {
+    override def name: String = "op"
+    override def genTable(op: RocketDecodePattern): BitPat = op.instruction.name match {
+      case "fadd.s" => BitPat("b00000")
+      case "fsub.s" => BitPat("b00001")
+      case "fmul.s" => BitPat("b00010")
+      case "fdiv.s" => BitPat("b00011")
+      // ... 其它浮点操作码 ...
+      case _ => BitPat("b00000")
+    }
+    override def uopType = new UOP { def width = 5 }
+  }
+  
+  object src_fmt extends UOPDecodeField[RocketDecodePattern] {
+    override def name: String = "src_fmt"
+    override def genTable(op: RocketDecodePattern): BitPat = op.instruction.name match {
+      case i if i.endsWith(".s") => BitPat("b00")
+      case i if i.endsWith(".d") => BitPat("b01")
+      case i if i.endsWith(".h") => BitPat("b10")
+      case _ => BitPat("b00")
+    }
+    override def uopType = new UOP { def width = 2 }
+  }
+  
+  object dst_fmt extends UOPDecodeField[RocketDecodePattern] {
+    override def name: String = "dst_fmt"
+    override def genTable(op: RocketDecodePattern): BitPat = op.instruction.name match {
+      case i if i.endsWith(".s") => BitPat("b00")
+      case i if i.endsWith(".d") => BitPat("b01")
+      case i if i.endsWith(".h") => BitPat("b10")
+      case _ => BitPat("b00")
+    }
+    override def uopType = new UOP { def width = 2 }
+  }
+  
+  object int_fmt extends UOPDecodeField[RocketDecodePattern] {
+    override def name: String = "int_fmt"
+    override def genTable(op: RocketDecodePattern): BitPat = BitPat("b00") // 默认
+    override def uopType = new UOP { def width = 2 }
+  }
+  
+  object op_mod extends BoolDecodeField[RocketDecodePattern] {
+    override def name: String = "op_mod"
+    override def genTable(op: RocketDecodePattern): BitPat = BitPat("b0") // 默认false，可根据需要调整
+  }
+  
+  object vectorial_op extends BoolDecodeField[RocketDecodePattern] {
+    override def name: String = "vectorial_op"
+    override def genTable(op: RocketDecodePattern): BitPat = BitPat("b0") // 默认false
+  }
+  
+  object tag_i extends UOPDecodeField[RocketDecodePattern] {
+    override def name: String = "tag_i"
+    override def genTable(op: RocketDecodePattern): BitPat = BitPat("b00000") // 默认
+    override def uopType = new UOP { def width = 5 }
   }
 }
 
