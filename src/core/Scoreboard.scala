@@ -5,7 +5,7 @@ import chisel3.util._
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
-class ScoreboardIO extends Bundle {
+class ScoreboardIO(val opNum: Int = 2) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
   val set = Input(new Bundle {
@@ -16,13 +16,16 @@ class ScoreboardIO extends Bundle {
     val en = Bool()
     val addr = UInt(5.W)
   })
-  val read = Input(new Bundle {
-    val addr = UInt(5.W)
-  })
+  val read = Vec(
+    opNum,
+    Input(new Bundle {
+      val addr = UInt(5.W)
+    })
+  )
+  val busy = Output(Vec(opNum, Bool()))
   val readBypassed = Input(new Bundle {
     val addr = UInt(5.W)
   })
-  val busy = Output(Bool())
   val busyBypassed = Output(Bool())
 }
 
@@ -64,33 +67,54 @@ class Scoreboard(val parameter: ScoreboardParameter)
     ens := false.B
   }
 
-  io.busy := r(io.read.addr)
   io.busyBypassed := _next(io.readBypassed.addr)
+
+  for (i <- 0 until io.read.length) {
+    io.busy(i) := r(io.read(i).addr)
+  }
 }
 
-class WarpScoreboardIO(warpNum: Int, regNum: Int) extends Bundle {
+// Bundle for scoreboard interface
+class ScoreboardInterface(warpNum: Int, opNum: Int = 2) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
-  val set = Input(new Bundle {
+  val busy = Input(Bool())
+  val set = Output(new Bundle {
     val en = Bool()
     val warpID = UInt(log2Ceil(warpNum).W)
-    val addr = UInt(log2Ceil(regNum).W)
+    val addr = UInt(5.W)
   })
-  val clear = Input(new Bundle {
+  val read = Vec(
+    opNum,
+    new Bundle {
+      val addr = Output(UInt(5.W))
+      val busy = Input(Bool())
+    }
+  )
+}
+
+// Bundle for warp scoreboard interface
+class WarpScoreboardInterface(warpNum: Int, opNum: Int = 2) extends Bundle {
+  val clock = Input(Clock())
+  val reset = Input(Bool())
+  val busy = Input(Bool())
+  val set = Output(new Bundle {
     val en = Bool()
     val warpID = UInt(log2Ceil(warpNum).W)
-    val addr = UInt(log2Ceil(regNum).W)
+    val addr = UInt(5.W)
   })
-  val read = Input(new Bundle {
+  val clear = Output(new Bundle { // 恢复 clear 信号
+    val en = Bool()
     val warpID = UInt(log2Ceil(warpNum).W)
-    val addr = UInt(log2Ceil(regNum).W)
+    val addr = UInt(5.W)
   })
-  val readBypassed = Input(new Bundle {
-    val warpID = UInt(log2Ceil(warpNum).W)
-    val addr = UInt(log2Ceil(regNum).W)
-  })
-  val busy = Output(Bool())
-  val busyBypassed = Output(Bool())
+  val read = Vec(
+    opNum,
+    new Bundle {
+      val addr = Output(UInt(5.W))
+      val busy = Input(Bool())
+    }
+  )
 }
 
 case class WarpScoreboardParameter(
@@ -101,7 +125,7 @@ case class WarpScoreboardParameter(
 
 @instantiable
 class WarpScoreboard(val parameter: WarpScoreboardParameter)
-    extends FixedIORawModule(new WarpScoreboardIO(parameter.warpNum, parameter.regNum))
+    extends FixedIORawModule(new WarpScoreboardInterface(parameter.warpNum, 2))
     with SerializableModule[WarpScoreboardParameter]
     with Public
     with ImplicitClock
@@ -127,14 +151,14 @@ class WarpScoreboard(val parameter: WarpScoreboardParameter)
     scoreboards(i).io.clear.en := clearSel
     scoreboards(i).io.clear.addr := io.clear.addr
 
-    scoreboards(i).io.read.addr := io.read.addr
-    scoreboards(i).io.readBypassed.addr := io.readBypassed.addr
+    for (j <- 0 until io.read.length) {
+      scoreboards(i).io.read(j).addr := io.read(j).addr
+    }
   }
 
   // Create multiplexers for read outputs
-  val busyVec = VecInit(scoreboards.map(_.io.busy))
-  val busyBypassedVec = VecInit(scoreboards.map(_.io.busyBypassed))
-
-  io.busy := busyVec(io.read.warpID)
-  io.busyBypassed := busyBypassedVec(io.readBypassed.warpID)
+  for (j <- 0 until io.read.length) {
+    val busyVec = VecInit(scoreboards.map(_.io.busy(j)))
+    io.read(j).busy := busyVec(io.set.warpID)
+  }
 }
