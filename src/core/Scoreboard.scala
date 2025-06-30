@@ -67,10 +67,11 @@ class Scoreboard(val parameter: ScoreboardParameter)
     ens := false.B
   }
 
-  io.busyBypassed := _next(io.readBypassed.addr)
-
+  // busy = 当前busy | 本周期set/clear后的busy
   for (i <- 0 until io.read.length) {
-    io.busy(i) := r(io.read(i).addr)
+    val busyNow = r(io.read(i).addr)
+    val busyBypassed = _next(io.read(i).addr)
+    io.busy(i) := busyNow | busyBypassed
   }
 }
 
