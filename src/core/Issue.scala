@@ -148,14 +148,14 @@ class IssueStage(val parameter: OGPUDecoderParameter)
   )
 
   // Connect scoreboard read ports
-  scoreboardRead(0).addr := rs1
-  scoreboardRead(1).addr := rs2
-  if (parameter.xLen >= 3) scoreboardRead(2).addr := rs3
+  scoreboardRead.addr(0) := rs1
+  scoreboardRead.addr(1) := rs2
+  if (parameter.xLen >= 3) scoreboardRead.addr(2) := rs3
 
   // Check busy status
-  val rs1Busy = scoreboardRead(0).busy && useRs1
-  val rs2Busy = scoreboardRead(1).busy && useRs2
-  val rs3Busy = isFloatInst && scoreboardRead.lift(2).map(_.busy).getOrElse(false.B) && useRs3
+  val rs1Busy = scoreboardRead.busy(0) && useRs1
+  val rs2Busy = scoreboardRead.busy(1) && useRs2
+  val rs3Busy = isFloatInst && scoreboardRead.busy.lift(2).getOrElse(false.B) && useRs3
   val anyRegBusy = rs1Busy || rs2Busy || rs3Busy
 
   val canIssue = !anyRegBusy && !scoreboardBusy

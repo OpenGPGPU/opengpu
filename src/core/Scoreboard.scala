@@ -84,23 +84,21 @@ class WarpScoreboardInterface(val parameter: WarpScoreboardParameter) extends Bu
   val clock = Input(Clock())
   val reset = Input(Bool())
   val busy = Input(Bool())
-  val set = Output(new Bundle {
+  val set = Input(new Bundle {
     val en = Bool()
     val warpID = UInt(log2Ceil(parameter.warpNum).W)
     val addr = UInt(5.W)
   })
-  val clear = Output(new Bundle {
+  val clear = Input(new Bundle {
     val en = Bool()
     val warpID = UInt(log2Ceil(parameter.warpNum).W)
     val addr = UInt(5.W)
   })
-  val read = Vec(
-    parameter.opNum,
-    new Bundle {
-      val addr = Output(UInt(5.W))
-      val busy = Input(Bool())
-    }
-  )
+  val read = new Bundle {
+    val warpID = Input(UInt(log2Ceil(parameter.warpNum).W))
+    val addr = Vec(parameter.opNum, Input(UInt(5.W)))
+    val busy = Output(Vec(parameter.opNum, Bool()))
+  }
 }
 
 @instantiable
@@ -134,13 +132,15 @@ class WarpScoreboard(val parameter: WarpScoreboardParameter)
     scoreboards(i).io.clear.addr := io.clear.addr
 
     for (j <- 0 until parameter.opNum) {
-      scoreboards(i).io.read(j).addr := io.read(j).addr
+      scoreboards(i).io.read(j).addr := io.read.addr(j)
     }
   }
 
-  // Create multiplexers for read outputs
+  // Mux busy output by warpID
+  val busyVecs = Seq.tabulate(parameter.opNum) { j =>
+    VecInit(scoreboards.map(_.io.busy(j)))
+  }
   for (j <- 0 until parameter.opNum) {
-    val busyVec = VecInit(scoreboards.map(_.io.busy(j)))
-    io.read(j).busy := busyVec(io.set.warpID)
+    io.read.busy(j) := busyVecs(j)(io.read.warpID)
   }
 }
