@@ -51,15 +51,9 @@ class Scoreboard(val parameter: ScoreboardParameter)
 
   private val _r = RegInit(0.U(parameter.regNum.W))
 
-  private def mask(en: Bool, addr: UInt) = Mux(en, 1.U << addr, 0.U)
-
-  when(io.set.en) {
-    _r := _r | mask(io.set.en, io.set.addr)
-  }
-
-  when(io.clear.en) {
-    _r := _r & ~mask(io.clear.en, io.clear.addr)
-  }
+  val setMask = Mux(io.set.en, 1.U << io.set.addr, 0.U)
+  val clearMask = Mux(io.clear.en, 1.U << io.clear.addr, 0.U)
+  _r := (_r & ~clearMask) | setMask
 
   for (i <- 0 until parameter.opNum) {
     io.busy(i) := _r(io.read(i).addr)
