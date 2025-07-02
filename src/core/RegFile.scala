@@ -5,11 +5,11 @@ import chisel3.util._
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
-class RegFileIO(dataWidth: Int) extends Bundle {
+class RegFileIO(dataWidth: Int, opNum: Int = 2) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
   val read = Vec(
-    2,
+    opNum,
     Input(new Bundle {
       val addr = UInt(5.W)
     })
@@ -19,18 +19,19 @@ class RegFileIO(dataWidth: Int) extends Bundle {
     val data = UInt(dataWidth.W)
     val en = Bool()
   })
-  val readData = Vec(2, Output(UInt(dataWidth.W)))
+  val readData = Vec(opNum, Output(UInt(dataWidth.W)))
 }
 
 case class RegFileParameter(
   regNum:    Int,
   dataWidth: Int,
+  opNum:     Int = 2,
   zero:      Boolean = false)
     extends SerializableModuleParameter
 
 @instantiable
 class RegFile(val parameter: RegFileParameter)
-    extends FixedIORawModule(new RegFileIO(parameter.dataWidth))
+    extends FixedIORawModule(new RegFileIO(parameter.dataWidth, parameter.opNum))
     with SerializableModule[RegFileParameter]
     with Public
     with ImplicitClock
@@ -42,18 +43,20 @@ class RegFile(val parameter: RegFileParameter)
   val rf: Mem[UInt] = Mem(parameter.regNum, UInt(parameter.dataWidth.W))
   private def access(addr: UInt): UInt = rf(addr(log2Ceil(parameter.regNum) - 1, 0))
 
-  io.readData(0) := Mux(parameter.zero.B && io.read(0).addr === 0.U, 0.U, access(io.read(0).addr))
-  io.readData(1) := Mux(parameter.zero.B && io.read(1).addr === 0.U, 0.U, access(io.read(1).addr))
+  // 为每个读端口生成对应的读取逻辑
+  for (i <- 0 until parameter.opNum) {
+    io.readData(i) := Mux(parameter.zero.B && io.read(i).addr === 0.U, 0.U, access(io.read(i).addr))
+  }
 
   when(io.write.en && io.write.addr =/= 0.U) {
     access(io.write.addr) := io.write.data
   }
 }
-class WarpRegFileIO(warpNum: Int, dataWidth: Int) extends Bundle {
+class WarpRegFileIO(warpNum: Int, dataWidth: Int, opNum: Int = 2) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
   val read = Vec(
-    2,
+    opNum,
     Input(new Bundle {
       val warpID = UInt(log2Ceil(warpNum).W)
       val addr = UInt(5.W)
@@ -65,18 +68,19 @@ class WarpRegFileIO(warpNum: Int, dataWidth: Int) extends Bundle {
     val data = UInt(dataWidth.W)
     val en = Bool()
   })
-  val readData = Vec(2, Output(UInt(dataWidth.W)))
+  val readData = Vec(opNum, Output(UInt(dataWidth.W)))
 }
 
 case class WarpRegFileParameter(
   warpNum:   Int,
   dataWidth: Int,
+  opNum:     Int = 2,
   zero:      Boolean = false)
     extends SerializableModuleParameter
 
 @instantiable
 class WarpRegFile(val parameter: WarpRegFileParameter)
-    extends FixedIORawModule(new WarpRegFileIO(parameter.warpNum, parameter.dataWidth))
+    extends FixedIORawModule(new WarpRegFileIO(parameter.warpNum, parameter.dataWidth, parameter.opNum))
     with SerializableModule[WarpRegFileParameter]
     with Public
     with ImplicitClock
@@ -87,7 +91,9 @@ class WarpRegFile(val parameter: WarpRegFileParameter)
 
   // Create register file for each warp
   val regFiles =
-    Seq.fill(parameter.warpNum)(Module(new RegFile(RegFileParameter(32, parameter.dataWidth, parameter.zero))))
+    Seq.fill(parameter.warpNum)(
+      Module(new RegFile(RegFileParameter(32, parameter.dataWidth, parameter.opNum, parameter.zero)))
+    )
 
   // Connect register file inputs
   for (i <- 0 until parameter.warpNum) {
@@ -98,13 +104,14 @@ class WarpRegFile(val parameter: WarpRegFileParameter)
     regFiles(i).io.write.addr := io.write.addr
     regFiles(i).io.write.data := io.write.data
 
-    regFiles(i).io.read(0).addr := io.read(0).addr
-    regFiles(i).io.read(1).addr := io.read(1).addr
+    for (j <- 0 until parameter.opNum) {
+      regFiles(i).io.read(j).addr := io.read(j).addr
+    }
   }
 
   // Create multiplexer for read output
-  val readDataVec0 = VecInit(regFiles.map(_.io.readData(0)))
-  val readDataVec1 = VecInit(regFiles.map(_.io.readData(1)))
-  io.readData(0) := readDataVec0(io.read(0).warpID)
-  io.readData(1) := readDataVec1(io.read(1).warpID)
+  for (j <- 0 until parameter.opNum) {
+    val readDataVec = VecInit(regFiles.map(_.io.readData(j)))
+    io.readData(j) := readDataVec(io.read(j).warpID)
+  }
 }

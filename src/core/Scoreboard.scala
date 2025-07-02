@@ -64,7 +64,6 @@ class Scoreboard(val parameter: ScoreboardParameter)
 class ScoreboardInterface(val parameter: ScoreboardParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
-  val busy = Input(Bool())
   val set = Output(new Bundle {
     val en = Bool()
     val warpID = UInt(log2Ceil(parameter.regNum).W)
@@ -83,7 +82,6 @@ class ScoreboardInterface(val parameter: ScoreboardParameter) extends Bundle {
 class WarpScoreboardInterface(val parameter: WarpScoreboardParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
-  val busy = Input(Bool())
   val set = Input(new Bundle {
     val en = Bool()
     val warpID = UInt(log2Ceil(parameter.warpNum).W)

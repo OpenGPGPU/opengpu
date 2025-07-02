@@ -10,13 +10,6 @@ class RegFileReadPort(xLen: Int) extends Bundle {
   val data = Input(UInt(xLen.W))
 }
 
-// Define an ExecutionType enumeration
-object ExecutionType {
-  val ALU = 0.U(2.W)
-  val FPU = 1.U(2.W)
-  val VEC = 2.U(2.W)
-}
-
 // Issue stage interface bundle
 class IssueStageInterface(parameter: OGPUDecoderParameter) extends Bundle {
   val clock = Input(Clock())
@@ -64,29 +57,25 @@ class IssueStageInterface(parameter: OGPUDecoderParameter) extends Bundle {
   })
 
   // Register file interfaces
-  val intRegFile = new Bundle {
-    val rs1 = new RegFileReadPort(parameter.xLen)
-    val rs2 = new RegFileReadPort(parameter.xLen)
-  }
-  val fpRegFile = new Bundle {
-    val rs1 = new RegFileReadPort(parameter.xLen)
-    val rs2 = new RegFileReadPort(parameter.xLen)
-    val rs3 = new RegFileReadPort(parameter.xLen)
-  }
-  val vecRegFile = new Bundle {
-    val rs1 = new RegFileReadPort(parameter.vLen)
-    val rs2 = new RegFileReadPort(parameter.vLen)
-  }
+  val intRegFile = new RegFileIO(parameter.xLen, opNum = 2)
+  val fpRegFile = new RegFileIO(parameter.xLen, opNum = 3)
+  val vecRegFile = new RegFileIO(parameter.vLen, opNum = 2)
 
   // Scoreboard interfaces
-  val intScoreboard = new WarpScoreboardInterface(
-    WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 2)
+  val intScoreboard = Flipped(
+    new WarpScoreboardInterface(
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 2)
+    )
   )
-  val fpScoreboard = new WarpScoreboardInterface(
-    WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3)
+  val fpScoreboard = Flipped(
+    new WarpScoreboardInterface(
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3)
+    )
   )
-  val vecScoreboard = new WarpScoreboardInterface(
-    WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 2)
+  val vecScoreboard = Flipped(
+    new WarpScoreboardInterface(
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 2)
+    )
   )
 }
 
@@ -124,41 +113,112 @@ class IssueStage(val parameter: OGPUDecoderParameter)
     .elsewhen(decode(parameter.selImm) === 3.U) { imm := immU }
     .elsewhen(decode(parameter.selImm) === 4.U) { imm := immJ }
 
+  // Suggestion: Use execType field from Decoder output
+  val execType = decode(parameter.execType)
+
+  val isALU = execType === parameter.ExecutionType.ALU
+  val isFPU = execType === parameter.ExecutionType.FPU
+  val isVectorInst = execType === parameter.ExecutionType.VEC
+
+  // Other control signals
   val useRs1 = decode(parameter.selAlu1) === 1.U
   val useRs2 = decode(parameter.selAlu2) === 2.U
-  val isFloatInst = fpuDecode(parameter.fwen) || fpuDecode(parameter.fren1)
-  val isVectorInst = decode(parameter.vector)
-  val isIntInst = !isFloatInst && !isVectorInst
-  val useRs3 = isFloatInst
+  val useRs3 = isFPU && fpuDecode(parameter.fren3)
 
-  // Select appropriate scoreboard
-  val scoreboardRead = Mux1H(
+  // Scoreboard read ports
+  io.intScoreboard.read.warpID := io.in.bits.instruction.wid
+  io.fpScoreboard.read.warpID := io.in.bits.instruction.wid
+  io.vecScoreboard.read.warpID := io.in.bits.instruction.wid
+
+  io.intScoreboard.read.addr(0) := rs1
+  io.intScoreboard.read.addr(1) := rs2
+  io.fpScoreboard.read.addr(0) := rs1
+  io.fpScoreboard.read.addr(1) := rs2
+  io.fpScoreboard.read.addr(2) := rs3
+  io.vecScoreboard.read.addr(0) := rs1
+  io.vecScoreboard.read.addr(1) := rs2
+
+  // Connect integer register read ports
+  io.intRegFile.read(0).addr := rs1
+  io.intRegFile.read(1).addr := rs2
+
+  // Connect floating-point register read ports
+  io.fpRegFile.read(0).addr := rs1
+  io.fpRegFile.read(1).addr := rs2
+  io.fpRegFile.read(2).addr := rs3
+
+  // Connect vector register read ports
+  io.vecRegFile.read(0).addr := rs1
+  io.vecRegFile.read(1).addr := rs2
+
+  // Extract data for issue
+  val rs1Data = Mux1H(
     Seq(
-      isIntInst -> io.intScoreboard.read,
-      isFloatInst -> io.fpScoreboard.read,
-      isVectorInst -> io.vecScoreboard.read
+      isALU -> io.intRegFile.readData(0),
+      isFPU -> io.fpRegFile.readData(0),
+      isVectorInst -> io.vecRegFile.readData(0)
     )
   )
-  val scoreboardBusy = Mux1H(
+  val rs2Data = Mux1H(
     Seq(
-      isIntInst -> io.intScoreboard.busy,
-      isFloatInst -> io.fpScoreboard.busy,
-      isVectorInst -> io.vecScoreboard.busy
+      isALU -> io.intRegFile.readData(1),
+      isFPU -> io.fpRegFile.readData(1),
+      isVectorInst -> io.vecRegFile.readData(1)
     )
   )
+  val rs3Data = io.fpRegFile.readData(2)
 
-  // Connect scoreboard read ports
-  scoreboardRead.addr(0) := rs1
-  scoreboardRead.addr(1) := rs2
-  if (parameter.xLen >= 3) scoreboardRead.addr(2) := rs3
+  // Scoreboard busy checks
+  val rs1Busy =
+    (isALU && io.intScoreboard.read.busy.lift(0).getOrElse(false.B)) ||
+      (isFPU && io.fpScoreboard.read.busy.lift(0).getOrElse(false.B)) ||
+      (isVectorInst && io.vecScoreboard.read.busy.lift(0).getOrElse(false.B))
 
-  // Check busy status
-  val rs1Busy = scoreboardRead.busy(0) && useRs1
-  val rs2Busy = scoreboardRead.busy(1) && useRs2
-  val rs3Busy = isFloatInst && scoreboardRead.busy.lift(2).getOrElse(false.B) && useRs3
+  val rs2Busy =
+    (isALU && io.intScoreboard.read.busy.lift(1).getOrElse(false.B)) ||
+      (isFPU && io.fpScoreboard.read.busy.lift(1).getOrElse(false.B)) ||
+      (isVectorInst && io.vecScoreboard.read.busy.lift(1).getOrElse(false.B)) && useRs2
+
+  val rs3Busy = isFPU && io.fpScoreboard.read.busy.lift(2).getOrElse(false.B) && useRs3
+
   val anyRegBusy = rs1Busy || rs2Busy || rs3Busy
 
-  val canIssue = !anyRegBusy && !scoreboardBusy
+  // Issue conditions
+  val canIssue = !anyRegBusy
+
+  // Issue to different units
+  io.aluIssue.valid := isALU && canIssue
+  io.fpuIssue.valid := isFPU && canIssue
+
+  // Assign issue port values
+  io.aluIssue.bits.rs1Data := io.intRegFile.readData(0)
+  io.aluIssue.bits.rs2Data := io.intRegFile.readData(1)
+  io.aluIssue.bits.warpID := io.in.bits.instruction.wid
+  io.aluIssue.bits.execType := execType
+  io.aluIssue.bits.aluFn := decode(parameter.aluFn)
+  io.aluIssue.bits.funct3 := inst(14, 12)
+  io.aluIssue.bits.funct7 := inst(31, 25)
+  io.aluIssue.bits.pc := io.in.bits.instruction.pc
+  io.aluIssue.bits.rd := rd
+  io.aluIssue.bits.isRVC := io.in.bits.rvc
+
+  io.fpuIssue.rs1Data := io.fpRegFile.readData(0)
+  io.fpuIssue.rs2Data := io.fpRegFile.readData(1)
+  io.fpuIssue.rs3Data := io.fpRegFile.readData(2)
+  io.fpuIssue.rnd_mode := fpuDecode(parameter.rnd_mode)
+  io.fpuIssue.op := fpuDecode(parameter.op)
+  io.fpuIssue.op_mod := fpuDecode(parameter.op_mod)
+  io.fpuIssue.src_fmt := fpuDecode(parameter.src_fmt)
+  io.fpuIssue.dst_fmt := fpuDecode(parameter.dst_fmt)
+  io.fpuIssue.int_fmt := fpuDecode(parameter.int_fmt)
+  io.fpuIssue.vectorial_op := fpuDecode(parameter.vectorial_op)
+  io.fpuIssue.tag_i := fpuDecode(parameter.tag_i)
+  io.fpuIssue.flush := false.B
+  io.fpuIssue.valid := isFPU && canIssue
+  io.fpuIssue.warpID := io.in.bits.instruction.wid
+  io.fpuIssue.rd := rd
+  io.fpuIssue.pc := io.in.bits.instruction.pc
+  io.fpuIssue.isRVC := io.in.bits.rvc
 
   // Connect ScoreboardInterface clock/reset
   io.intScoreboard.clock := io.clock
@@ -169,14 +229,14 @@ class IssueStage(val parameter: OGPUDecoderParameter)
   io.vecScoreboard.reset := io.reset
 
   // Connect set/clear signals
-  io.intScoreboard.set.en := isIntInst && decode(parameter.wxd)
+  io.intScoreboard.set.en := isALU && decode(parameter.wxd)
   io.intScoreboard.set.warpID := io.in.bits.instruction.wid
   io.intScoreboard.set.addr := rd
   io.intScoreboard.clear.en := false.B
   io.intScoreboard.clear.warpID := 0.U
   io.intScoreboard.clear.addr := 0.U
 
-  io.fpScoreboard.set.en := isFloatInst && fpuDecode(parameter.fwen)
+  io.fpScoreboard.set.en := isFPU && fpuDecode(parameter.fwen)
   io.fpScoreboard.set.warpID := io.in.bits.instruction.wid
   io.fpScoreboard.set.addr := rd
   io.fpScoreboard.clear.en := false.B
@@ -189,4 +249,7 @@ class IssueStage(val parameter: OGPUDecoderParameter)
   io.vecScoreboard.clear.en := false.B
   io.vecScoreboard.clear.warpID := 0.U
   io.vecScoreboard.clear.addr := 0.U
+
+  // Assign in.ready signal
+  io.in.ready := true.B
 }

@@ -109,9 +109,12 @@ case class OGPUDecoderParameter(
     memCommand,
     wxd,
     csr,
+    mul,
+    div,
     fenceI,
     fence,
     amo,
+    execType,
     aluFn
   ) ++
     (if (useFPU)
@@ -188,6 +191,38 @@ case class OGPUDecoderParameter(
     override def genTable(op: RocketDecodePattern): BitPat = y
   }
 
+  object ExecutionType extends UOP {
+    def width = 3
+    def ALU:    BitPat = encode(0)
+    def FPU:    BitPat = encode(1)
+    def VEC:    BitPat = encode(2)
+    def BRANCH: BitPat = encode(3)
+    def MEM:    BitPat = encode(4)
+    def CSR:    BitPat = encode(5)
+    def SYSTEM: BitPat = encode(6)
+  }
+
+  object execType extends UOPDecodeField[RocketDecodePattern] {
+    override def name: String = "execType"
+    override def genTable(op: RocketDecodePattern): BitPat = op.instruction.instructionSet.name match {
+      case "rv_v" => ExecutionType.VEC
+      case s
+          if Seq("rv_f", "rv_d", "rv_q", "rv_zfh", "rv64_f", "rv64_d", "rv64_q", "rv64_zfh", "rv_d_zfh", "rv_q_zfh")
+            .contains(s) =>
+        ExecutionType.FPU
+      case "rv_i" | "rv_m" =>
+        op.instruction.name match {
+          case "jal" | "jalr" | "beq" | "bne" | "blt" | "bge" | "bltu" | "bgeu" => ExecutionType.BRANCH
+          case "lw" | "sw" | "lb" | "lh" | "lbu" | "lhu" | "sb" | "sh" | "ld" | "sd" | "lwu" | "sll" | "srl" | "sra" =>
+            ExecutionType.MEM
+          case "csrrw" | "csrrs" | "csrrc" | "csrrwi" | "csrrsi" | "csrrci"       => ExecutionType.CSR
+          case "ecall" | "ebreak" | "mret" | "sret" | "wfi" | "fence" | "fence.i" => ExecutionType.SYSTEM
+          case _                                                                  => ExecutionType.ALU
+        }
+      case _ => ExecutionType.ALU
+    }
+    override def uopType: ExecutionType.type = ExecutionType
+  }
   object fp extends BoolDecodeField[RocketDecodePattern] {
     override def name: String = "fp"
 
