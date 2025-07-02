@@ -5,21 +5,24 @@ import chisel3.util._
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
-class RegFileIO(dataWidth: Int, opNum: Int = 2) extends Bundle {
-  val clock = Input(Clock())
-  val reset = Input(Bool())
+class RegFileReadIO(dataWidth: Int, opNum: Int = 2) extends Bundle {
   val read = Vec(
     opNum,
     Input(new Bundle {
       val addr = UInt(5.W)
     })
   )
+  val readData = Vec(opNum, Output(UInt(dataWidth.W)))
+}
+
+class RegFileIO(dataWidth: Int, opNum: Int = 2) extends RegFileReadIO(dataWidth, opNum) {
+  val clock = Input(Clock())
+  val reset = Input(Bool())
   val write = Input(new Bundle {
     val addr = UInt(5.W)
     val data = UInt(dataWidth.W)
     val en = Bool()
   })
-  val readData = Vec(opNum, Output(UInt(dataWidth.W)))
 }
 
 case class RegFileParameter(
