@@ -57,17 +57,17 @@ class IssueStageInterface(parameter: OGPUDecoderParameter) extends Bundle {
   // Scoreboard interfaces
   val intScoreboard = Flipped(
     new WarpScoreboardReadIO(
-      WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 2)
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 3)
     )
   )
   val fpScoreboard = Flipped(
     new WarpScoreboardReadIO(
-      WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3)
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4)
     )
   )
   val vecScoreboard = Flipped(
     new WarpScoreboardReadIO(
-      WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 2)
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3)
     )
   )
 }
@@ -118,17 +118,25 @@ class IssueStage(val parameter: OGPUDecoderParameter)
   val useRs2 = decode(parameter.selAlu2) === 2.U
   val useRs3 = isFPU && fpuDecode(parameter.fren3)
 
-  // Scoreboard read ports
+  // 增加 useRd 控制信号
+  val useRd = decode(parameter.wxd) || fpuDecode(parameter.fwen) || decode(parameter.vector) // 具体条件按你的解码表实际定义
+
+  // Scoreboard read ports（rd 端口只在 useRd 时赋值，否则赋 0）
   io.intScoreboard.warpID := io.in.bits.instruction.wid
   io.intScoreboard.addr(0) := rs1
   io.intScoreboard.addr(1) := rs2
+  io.intScoreboard.addr(2) := Mux(useRd, rd, 0.U)
+
   io.fpScoreboard.warpID := io.in.bits.instruction.wid
   io.fpScoreboard.addr(0) := rs1
   io.fpScoreboard.addr(1) := rs2
   io.fpScoreboard.addr(2) := rs3
+  io.fpScoreboard.addr(3) := Mux(useRd, rd, 0.U)
+
   io.vecScoreboard.warpID := io.in.bits.instruction.wid
   io.vecScoreboard.addr(0) := rs1
   io.vecScoreboard.addr(1) := rs2
+  io.vecScoreboard.addr(2) := Mux(useRd, rd, 0.U)
 
   // Connect integer register read ports
   io.intRegFile.read(0).addr := rs1
@@ -173,10 +181,16 @@ class IssueStage(val parameter: OGPUDecoderParameter)
 
   val rs3Busy = isFPU && io.fpScoreboard.busy.lift(2).getOrElse(false.B) && useRs3
 
+  // 写寄存器冲突检查
+  val rdBusy =
+    (isALU && io.intScoreboard.busy.lift(2).getOrElse(false.B) && useRd && (rd =/= 0.U)) ||
+      (isFPU && io.fpScoreboard.busy.lift(3).getOrElse(false.B) && useRd && (rd =/= 0.U)) ||
+      (isVectorInst && io.vecScoreboard.busy.lift(2).getOrElse(false.B) && useRd && (rd =/= 0.U))
+
   val anyRegBusy = rs1Busy || rs2Busy || rs3Busy
 
   // Issue conditions
-  val canIssue = !anyRegBusy
+  val canIssue = !anyRegBusy && !rdBusy
 
   // Issue to different units
   io.aluIssue.valid := isALU && canIssue
