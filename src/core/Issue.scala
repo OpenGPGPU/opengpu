@@ -82,157 +82,42 @@ class IssueStage(val parameter: OGPUDecoderParameter)
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
-  // Extract instruction fields
-  val inst = io.in.bits.instruction.instruction
-  val rs1 = inst(19, 15)
-  val rs2 = inst(24, 20)
-  val rs3 = inst(31, 27)
-  val rd = inst(11, 7)
-  val imm = WireDefault(0.U(parameter.xLen.W))
+  // 子模块实例化
+  val aluIssueModule = withClockAndReset(io.clock, io.reset) { Module(new AluIssue(parameter)) }
+  val fpuIssueModule = withClockAndReset(io.clock, io.reset) { Module(new FpuIssue(parameter)) }
 
-  // Immediate decoding based on instruction format
-  val immI = Cat(Fill(20, inst(31)), inst(31, 20))
-  val immS = Cat(Fill(20, inst(31)), inst(31, 25), inst(11, 7))
-  val immB = Cat(Fill(20, inst(31)), inst(7), inst(30, 25), inst(11, 8), 0.U(1.W))
-  val immU = Cat(inst(31, 12), Fill(12, 0.U))
-  val immJ = Cat(Fill(12, inst(31)), inst(19, 12), inst(20), inst(30, 21), 0.U(1.W))
+  // ALU 子模块信号连接
+  aluIssueModule.io.in.valid := io.in.valid && (io.in.bits.coreResult
+    .output(parameter.execType) === parameter.ExecutionType.ALU)
+  aluIssueModule.io.in.bits.instruction := io.in.bits.instruction
+  aluIssueModule.io.in.bits.coreResult := io.in.bits.coreResult
+  aluIssueModule.io.in.bits.rvc := io.in.bits.rvc
+  aluIssueModule.io.intRegFile <> io.intRegFile
+  aluIssueModule.io.intScoreboard <> io.intScoreboard
+  io.aluIssue <> aluIssueModule.io.aluIssue
 
-  // Select immediate based on instruction type
-  val decode = io.in.bits.coreResult.output
-  val fpuDecode = io.in.bits.fpuResult.output
-  when(decode(parameter.selImm) === 0.U) { imm := immI }
-    .elsewhen(decode(parameter.selImm) === 1.U) { imm := immS }
-    .elsewhen(decode(parameter.selImm) === 2.U) { imm := immB }
-    .elsewhen(decode(parameter.selImm) === 3.U) { imm := immU }
-    .elsewhen(decode(parameter.selImm) === 4.U) { imm := immJ }
+  // FPU 子模块信号连接
+  fpuIssueModule.io.in.valid := io.in.valid && (io.in.bits.coreResult
+    .output(parameter.execType) === parameter.ExecutionType.FPU)
+  fpuIssueModule.io.in.bits.instruction := io.in.bits.instruction
+  fpuIssueModule.io.in.bits.fpuResult := io.in.bits.fpuResult
+  fpuIssueModule.io.in.bits.rvc := io.in.bits.rvc
+  fpuIssueModule.io.fpRegFile <> io.fpRegFile
+  fpuIssueModule.io.fpScoreboard <> io.fpScoreboard
+  io.fpuIssue <> fpuIssueModule.io.fpuIssue
 
-  // Suggestion: Use execType field from Decoder output
-  val execType = decode(parameter.execType)
+  // 其他接口直通
+  io.vecRegFile <> DontCare
+  io.vecScoreboard <> DontCare
 
-  val isALU = execType === parameter.ExecutionType.ALU
-  val isFPU = execType === parameter.ExecutionType.FPU
-  val isVectorInst = execType === parameter.ExecutionType.VEC
-
-  // Other control signals
-  val useRs1 = decode(parameter.selAlu1) === 1.U
-  val useRs2 = decode(parameter.selAlu2) === 2.U
-  val useRs3 = isFPU && fpuDecode(parameter.fren3)
-
-  // 增加 useRd 控制信号
-  val useRd = decode(parameter.wxd) || fpuDecode(parameter.fwen) || decode(parameter.vector) // 具体条件按你的解码表实际定义
-
-  // Scoreboard read ports（rd 端口只在 useRd 时赋值，否则赋 0）
-  io.intScoreboard.warpID := io.in.bits.instruction.wid
-  io.intScoreboard.addr(0) := rs1
-  io.intScoreboard.addr(1) := rs2
-  io.intScoreboard.addr(2) := Mux(useRd, rd, 0.U)
-
-  io.fpScoreboard.warpID := io.in.bits.instruction.wid
-  io.fpScoreboard.addr(0) := rs1
-  io.fpScoreboard.addr(1) := rs2
-  io.fpScoreboard.addr(2) := rs3
-  io.fpScoreboard.addr(3) := Mux(useRd, rd, 0.U)
-
-  io.vecScoreboard.warpID := io.in.bits.instruction.wid
-  io.vecScoreboard.addr(0) := rs1
-  io.vecScoreboard.addr(1) := rs2
-  io.vecScoreboard.addr(2) := Mux(useRd, rd, 0.U)
-
-  // Connect integer register read ports
-  io.intRegFile.read(0).addr := rs1
-  io.intRegFile.read(1).addr := rs2
-
-  // Connect floating-point register read ports
-  io.fpRegFile.read(0).addr := rs1
-  io.fpRegFile.read(1).addr := rs2
-  io.fpRegFile.read(2).addr := rs3
-
-  // Connect vector register read ports
-  io.vecRegFile.read(0).addr := rs1
-  io.vecRegFile.read(1).addr := rs2
-
-  // Extract data for issue
-  val rs1Data = Mux1H(
-    Seq(
-      isALU -> io.intRegFile.readData(0),
-      isFPU -> io.fpRegFile.readData(0),
-      isVectorInst -> io.vecRegFile.readData(0)
-    )
-  )
-  val rs2Data = Mux1H(
-    Seq(
-      isALU -> io.intRegFile.readData(1),
-      isFPU -> io.fpRegFile.readData(1),
-      isVectorInst -> io.vecRegFile.readData(1)
-    )
-  )
-  val rs3Data = io.fpRegFile.readData(2)
-
-  // Scoreboard busy checks
-  val rs1Busy =
-    (isALU && io.intScoreboard.busy.lift(0).getOrElse(false.B)) ||
-      (isFPU && io.fpScoreboard.busy.lift(0).getOrElse(false.B)) ||
-      (isVectorInst && io.vecScoreboard.busy.lift(0).getOrElse(false.B))
-
-  val rs2Busy =
-    (isALU && io.intScoreboard.busy.lift(1).getOrElse(false.B)) ||
-      (isFPU && io.fpScoreboard.busy.lift(1).getOrElse(false.B)) ||
-      (isVectorInst && io.vecScoreboard.busy.lift(1).getOrElse(false.B)) && useRs2
-
-  val rs3Busy = isFPU && io.fpScoreboard.busy.lift(2).getOrElse(false.B) && useRs3
-
-  // 写寄存器冲突检查
-  val rdBusy =
-    (isALU && io.intScoreboard.busy.lift(2).getOrElse(false.B) && useRd && (rd =/= 0.U)) ||
-      (isFPU && io.fpScoreboard.busy.lift(3).getOrElse(false.B) && useRd && (rd =/= 0.U)) ||
-      (isVectorInst && io.vecScoreboard.busy.lift(2).getOrElse(false.B) && useRd && (rd =/= 0.U))
-
-  val anyRegBusy = rs1Busy || rs2Busy || rs3Busy
-
-  // Issue conditions
-  val canIssue = !anyRegBusy && !rdBusy
-
-  // Issue to different units
-  io.aluIssue.valid := isALU && canIssue
-  io.aluIssue.bits.warpID := io.in.bits.instruction.wid
-  io.aluIssue.bits.execType := execType
-  io.aluIssue.bits.aluFn := decode(parameter.aluFn)
-  io.aluIssue.bits.funct3 := inst(14, 12)
-  io.aluIssue.bits.funct7 := inst(31, 25)
-  io.aluIssue.bits.pc := io.in.bits.instruction.pc
-  io.aluIssue.bits.rs1Data := io.intRegFile.readData(0)
-  io.aluIssue.bits.rs2Data := io.intRegFile.readData(1)
-  io.aluIssue.bits.rd := rd
-  io.aluIssue.bits.isRVC := io.in.bits.rvc
-
-  io.fpuIssue.valid := isFPU && canIssue
-  io.fpuIssue.bits.rs1Data := io.fpRegFile.readData(0)
-  io.fpuIssue.bits.rs2Data := io.fpRegFile.readData(1)
-  io.fpuIssue.bits.rs3Data := io.fpRegFile.readData(2)
-  // TODO
-  io.fpuIssue.bits.rnd_mode := 0.U
-  io.fpuIssue.bits.op := fpuDecode(parameter.op)
-  io.fpuIssue.bits.op_mod := fpuDecode(parameter.op_mod)
-  io.fpuIssue.bits.src_fmt := fpuDecode(parameter.src_fmt)
-  io.fpuIssue.bits.dst_fmt := fpuDecode(parameter.dst_fmt)
-  io.fpuIssue.bits.int_fmt := fpuDecode(parameter.int_fmt)
-  io.fpuIssue.bits.vectorial_op := fpuDecode(parameter.vectorial_op)
-  io.fpuIssue.bits.tag_i := fpuDecode(parameter.tag_i)
-  io.fpuIssue.bits.flush := false.B
-  io.fpuIssue.bits.warpID := io.in.bits.instruction.wid
-  io.fpuIssue.bits.rd := rd
-  io.fpuIssue.bits.pc := io.in.bits.instruction.pc
-  io.fpuIssue.bits.isRVC := io.in.bits.rvc
-
-  // Assign in.ready signal
-  // 根据发射类型设置in.ready
+  // in.ready 由子模块 ready 控制
   io.in.ready := Mux(
-    isALU,
-    io.aluIssue.ready,
+    io.in.bits.coreResult.output(parameter.execType) === parameter.ExecutionType.ALU,
+    aluIssueModule.io.in.ready,
     Mux(
-      isFPU,
-      io.fpuIssue.ready,
-      true.B // 默认值，可根据需要修改
+      io.in.bits.coreResult.output(parameter.execType) === parameter.ExecutionType.FPU,
+      fpuIssueModule.io.in.ready,
+      true.B // 默认值
     )
   )
 }
