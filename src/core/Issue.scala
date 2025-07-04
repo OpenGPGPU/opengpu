@@ -46,7 +46,6 @@ class IssueStageInterface(parameter: OGPUDecoderParameter) extends Bundle {
     val warpID = UInt(log2Ceil(parameter.warpNum).W)
     val rd = UInt(5.W)
     val pc = UInt(parameter.xLen.W)
-    val isRVC = Bool()
   })
 
   // Register file interfaces
@@ -101,7 +100,6 @@ class IssueStage(val parameter: OGPUDecoderParameter)
     .output(parameter.execType) === parameter.ExecutionType.FPU)
   fpuIssueModule.io.in.bits.instruction := io.in.bits.instruction
   fpuIssueModule.io.in.bits.fpuResult := io.in.bits.fpuResult
-  fpuIssueModule.io.in.bits.rvc := io.in.bits.rvc
   fpuIssueModule.io.fpRegFile <> io.fpRegFile
   fpuIssueModule.io.fpScoreboard <> io.fpScoreboard
   io.fpuIssue <> fpuIssueModule.io.fpuIssue

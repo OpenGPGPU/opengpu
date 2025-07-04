@@ -7,7 +7,6 @@ class FpuIssueIO(parameter: OGPUDecoderParameter) extends Bundle {
   val in = Flipped(DecoupledIO(new Bundle {
     val instruction = new InstructionBundle(parameter.warpNum, 32)
     val fpuResult = new FPUDecoderInterface(parameter)
-    val rvc = Bool()
   }))
   val fpRegFile = Flipped(new RegFileReadIO(parameter.xLen, opNum = 3))
   val fpScoreboard = Flipped(
@@ -31,7 +30,6 @@ class FpuIssueIO(parameter: OGPUDecoderParameter) extends Bundle {
     val warpID = UInt(log2Ceil(parameter.warpNum).W)
     val rd = UInt(5.W)
     val pc = UInt(parameter.xLen.W)
-    val isRVC = Bool()
   })
 }
 
@@ -88,7 +86,6 @@ class FpuIssue(val parameter: OGPUDecoderParameter) extends Module {
   io.fpuIssue.bits.warpID := io.in.bits.instruction.wid
   io.fpuIssue.bits.rd := rd
   io.fpuIssue.bits.pc := io.in.bits.instruction.pc
-  io.fpuIssue.bits.isRVC := io.in.bits.rvc
 
   // ready 信号
   io.in.ready := io.fpuIssue.ready

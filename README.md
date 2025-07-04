@@ -20,9 +20,8 @@ A project to create a simplified GPU implementation with chisel.
 
 flowchart TD
   subgraph sqs[SoftwareQueues]
-    sq0(SoftwareQueue)
     sq1(SoftwareQueue)
-    sqn(... ...)
+    sqn(SoftwareQueue)
   end
 
   subgraph qs[QueueScheduler]
@@ -30,45 +29,52 @@ flowchart TD
   end
 
   subgraph hqs[HardwareQueues]
-    hq0(HardwareQueue)
     hq1(HardwareQueue)
-    hqn(... ...)
+    hqn(HardwareQueue)
   end
 
   subgraph jd[JobDispatchers]
     jd1(JobDispatcher)
-    jd2(JObDispatcher)
-    jdn(... ...)
+    jdn(JObDispatcher)
   end
 
   subgraph wgd[WorkGroupDispatchers]
     wgd1(WorkGroupDispatcher)
-    wgd2(WorkGroupDispatcher)
-    wgdn(... ...)
+    wgdn(WorkGroupDispatcher)
   end
 
   subgraph cus[ComputeUnits]
-    cu1(ComputeUnit)
-    cu2(ComputeUnit)
-    cun(... ...)
+    subgraph cu1[ComputeUnit]
+      ws(WarpScheduler)
+      fetch(InstFetch)
+      icache(Icache)
+      issue(Issue)
+      exe(Execution)
+      mem(MemoryAccess)
+      wb(WriteBack)
+    end
+    subgraph cun[ComputeUnit]
+      wsn(WarpScheduler)
+      fetchn(InstFetch)
+      icachen(Icache)
+      issuen(Issue)
+      exen(Execution)
+      memn(MemoryAccess)
+      wbn(WriteBack)
+    end
   end
 
-  sq0 --> qs
   sq1 --> qs
   sqn --> qs
-  qs --> hq0
   qs --> hq1
   qs --> hqn
-  hq0 --> jd
   hq1 --> jd
   hqn --> jd
 
   jd1 --> wgd
-  jd2 --> wgd
   jdn --> wgdn
 
   wgd1 --> cus
-  wgd2 --> cus
   wgdn --> cus
 
 ```
