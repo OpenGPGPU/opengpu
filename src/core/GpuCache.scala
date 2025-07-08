@@ -16,11 +16,13 @@ case class GpuCacheParameter(
   paddrBits:     Int, // Physical address width
   dataWidth:     Int, // Data width (in bits)
   nMSHRs:        Int = 4, // Number of MSHR entries
-  nTLBEntries:   Int = 64 // Number of TLB entries
+  nTLBEntries:   Int = 64, // Number of TLB entries
+  pageBytes:     Int = 4096 // Page size in bytes (default 4KB)
 ) extends SerializableModuleParameter {
   val indexBits = log2Ceil(nSets)
   val offsetBits = log2Ceil(blockBytes)
   val tagBits = paddrBits - indexBits - offsetBits
+  val pageOffsetBits = log2Ceil(pageBytes)
 }
 
 object GpuCacheParameter {
@@ -89,7 +91,7 @@ class GpuCacheInterface(parameter: GpuCacheParameter) extends Bundle {
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val req = Flipped(Decoupled(new GpuCacheReq(parameter)))
   val resp = Decoupled(new GpuCacheResp(parameter))
-  val ptw = new GpuTLBPTWIO(parameter.vaddrBits - 12, parameter.paddrBits)
+  val ptw = new GpuTLBPTWIO(parameter.vaddrBits - parameter.pageOffsetBits, parameter.paddrBits)
   val memory = new GpuMemoryIO(parameter)
 }
 
@@ -117,21 +119,21 @@ class GpuTLB(parameter: GpuCacheParameter) extends Module {
       val miss = Bool()
       val exception = Bool()
     })
-    val ptw = new GpuTLBPTWIO(parameter.vaddrBits - 12, parameter.paddrBits)
+    val ptw = new GpuTLBPTWIO(parameter.vaddrBits - parameter.pageOffsetBits, parameter.paddrBits)
   })
-  val vpnBits = parameter.vaddrBits - 12
-  val pfnBits = parameter.paddrBits - 12
+  val vpnBits = parameter.vaddrBits - parameter.pageOffsetBits
+  val pfnBits = parameter.paddrBits - parameter.pageOffsetBits
   val nEntries = parameter.nTLBEntries
   val valid = RegInit(VecInit(Seq.fill(nEntries)(false.B)))
   val vpn = Reg(Vec(nEntries, UInt(vpnBits.W)))
   val pfn = Reg(Vec(nEntries, UInt(pfnBits.W)))
-  val reqVpn = io.req.bits.vaddr(parameter.vaddrBits - 1, 12)
+  val reqVpn = io.req.bits.vaddr(parameter.vaddrBits - 1, parameter.pageOffsetBits)
   val hitVec = VecInit((0 until nEntries).map(i => valid(i) && vpn(i) === reqVpn))
   val hit = hitVec.asUInt.orR
   val hitEntry = WireDefault(0.U(log2Ceil(nEntries).W))
   for (i <- 0 until nEntries) { when(hitVec(i)) { hitEntry := i.U } }
   io.resp.valid := io.req.valid
-  io.resp.bits.paddr := Cat(pfn(hitEntry), io.req.bits.vaddr(11, 0))
+  io.resp.bits.paddr := Cat(pfn(hitEntry), io.req.bits.vaddr(parameter.pageOffsetBits - 1, 0))
   io.resp.bits.miss := !hit
   io.resp.bits.exception := false.B
   io.ptw.req.valid := io.req.valid && !hit
