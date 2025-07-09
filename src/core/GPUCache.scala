@@ -7,7 +7,7 @@ import chisel3.experimental.hierarchy.instantiable
 
 /** GPU Cache parameter case class, similar to ICacheParameter. Contains all configuration for the cache structure.
   */
-case class GpuCacheParameter(
+case class GPUCacheParameter(
   useAsyncReset: Boolean = false, // Whether to use async reset
   nSets:         Int, // Number of sets
   nWays:         Int, // Number of ways (associativity)
@@ -25,14 +25,14 @@ case class GpuCacheParameter(
   val pageOffsetBits = log2Ceil(pageBytes)
 }
 
-object GpuCacheParameter {
-  implicit def rwP: upickle.default.ReadWriter[GpuCacheParameter] = upickle.default.macroRW[GpuCacheParameter]
+object GPUCacheParameter {
+  implicit def rwP: upickle.default.ReadWriter[GPUCacheParameter] = upickle.default.macroRW[GPUCacheParameter]
 }
 
 /** GPU Cache request bundle (from core to cache) vaddr: virtual address cmd: 0 = load, 1 = store size: access size
   * (log2) data: store data
   */
-class GpuCacheReq(parameter: GpuCacheParameter) extends Bundle {
+class GPUCacheReq(parameter: GPUCacheParameter) extends Bundle {
   val vaddr = UInt(parameter.vaddrBits.W)
   val cmd = UInt(2.W)
   val size = UInt(3.W)
@@ -41,7 +41,7 @@ class GpuCacheReq(parameter: GpuCacheParameter) extends Bundle {
 
 /** GPU Cache response bundle (from cache to core) vaddr: virtual address data: load data exception: miss or error
   */
-class GpuCacheResp(parameter: GpuCacheParameter) extends Bundle {
+class GPUCacheResp(parameter: GPUCacheParameter) extends Bundle {
   val vaddr = UInt(parameter.vaddrBits.W)
   val data = UInt(parameter.dataWidth.W)
   val exception = Bool()
@@ -50,7 +50,7 @@ class GpuCacheResp(parameter: GpuCacheParameter) extends Bundle {
 /** Page Table Walker interface for TLB miss handling vpn: virtual page number pte: page table entry (physical page
   * number)
   */
-class GpuTLBPTWIO(val vpnBits: Int, val paddrBits: Int) extends Bundle {
+class GPUTLBPTWIO(val vpnBits: Int, val paddrBits: Int) extends Bundle {
   val req = Decoupled(new Bundle {
     val vpn = UInt(vpnBits.W)
   })
@@ -62,7 +62,7 @@ class GpuTLBPTWIO(val vpnBits: Int, val paddrBits: Int) extends Bundle {
 
 /** Memory request bundle (from cache to memory system)
   */
-class GpuMemoryReq(parameter: GpuCacheParameter) extends Bundle {
+class GPUMemoryReq(parameter: GPUCacheParameter) extends Bundle {
   val addr = UInt(parameter.paddrBits.W)
   val cmd = UInt(2.W)
   val size = UInt(3.W)
@@ -71,7 +71,7 @@ class GpuMemoryReq(parameter: GpuCacheParameter) extends Bundle {
 
 /** Memory response bundle (from memory system to cache)
   */
-class GpuMemoryResp(parameter: GpuCacheParameter) extends Bundle {
+class GPUMemoryResp(parameter: GPUCacheParameter) extends Bundle {
   val addr = UInt(parameter.paddrBits.W)
   val data = UInt(parameter.dataWidth.W)
   val valid = Bool()
@@ -79,26 +79,26 @@ class GpuMemoryResp(parameter: GpuCacheParameter) extends Bundle {
 
 /** Memory interface for GPU cache
   */
-class GpuMemoryIO(parameter: GpuCacheParameter) extends Bundle {
-  val req = Decoupled(new GpuMemoryReq(parameter))
-  val resp = Flipped(Decoupled(new GpuMemoryResp(parameter)))
+class GPUMemoryIO(parameter: GPUCacheParameter) extends Bundle {
+  val req = Decoupled(new GPUMemoryReq(parameter))
+  val resp = Flipped(Decoupled(new GPUMemoryResp(parameter)))
 }
 
 /** GPU Cache top-level interface (IO bundle) Includes request/response, PTW, and memory interface
   */
-class GpuCacheInterface(parameter: GpuCacheParameter) extends Bundle {
+class GPUCacheInterface(parameter: GPUCacheParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
-  val req = Flipped(Decoupled(new GpuCacheReq(parameter)))
-  val resp = Decoupled(new GpuCacheResp(parameter))
-  val ptw = new GpuTLBPTWIO(parameter.vaddrBits - parameter.pageOffsetBits, parameter.paddrBits)
-  val memory = new GpuMemoryIO(parameter)
+  val req = Flipped(Decoupled(new GPUCacheReq(parameter)))
+  val resp = Decoupled(new GPUCacheResp(parameter))
+  val ptw = new GPUTLBPTWIO(parameter.vaddrBits - parameter.pageOffsetBits, parameter.paddrBits)
+  val memory = new GPUMemoryIO(parameter)
 }
 
 /** MSHR entry for miss tracking and merge waiting: which slots are waiting for this miss waitingData: data for each
   * waiting slot
   */
-class GpuMSHREntry(parameter: GpuCacheParameter) extends Bundle {
+class GPUMSHREntry(parameter: GPUCacheParameter) extends Bundle {
   val valid = Bool()
   val vaddr = UInt(parameter.vaddrBits.W)
   val paddr = UInt(parameter.paddrBits.W)
@@ -111,15 +111,15 @@ class GpuMSHREntry(parameter: GpuCacheParameter) extends Bundle {
 
 /** Simple fully-associative TLB for address translation Handles TLB miss by requesting PTW
   */
-class GpuTLB(parameter: GpuCacheParameter) extends Module {
+class GPUTLB(parameter: GPUCacheParameter) extends Module {
   val io = IO(new Bundle {
-    val req = Flipped(Decoupled(new GpuCacheReq(parameter)))
+    val req = Flipped(Decoupled(new GPUCacheReq(parameter)))
     val resp = Decoupled(new Bundle {
       val paddr = UInt(parameter.paddrBits.W)
       val miss = Bool()
       val exception = Bool()
     })
-    val ptw = new GpuTLBPTWIO(parameter.vaddrBits - parameter.pageOffsetBits, parameter.paddrBits)
+    val ptw = new GPUTLBPTWIO(parameter.vaddrBits - parameter.pageOffsetBits, parameter.paddrBits)
   })
   val vpnBits = parameter.vaddrBits - parameter.pageOffsetBits
   val pfnBits = parameter.paddrBits - parameter.pageOffsetBits
@@ -127,34 +127,87 @@ class GpuTLB(parameter: GpuCacheParameter) extends Module {
   val valid = RegInit(VecInit(Seq.fill(nEntries)(false.B)))
   val vpn = Reg(Vec(nEntries, UInt(vpnBits.W)))
   val pfn = Reg(Vec(nEntries, UInt(pfnBits.W)))
+
+  // 状态机
+  val s_idle :: s_wait_ptw :: Nil = Enum(2)
+  val state = RegInit(s_idle)
+  val savedReq = Reg(new GPUCacheReq(parameter))
+  val savedVpn = Reg(UInt(vpnBits.W))
+
+  // PTW请求
+  val ptwReqValidReg = RegInit(false.B)
+  val ptwReqVpnReg = Reg(UInt(vpnBits.W))
+  io.ptw.req.valid := ptwReqValidReg
+  io.ptw.req.bits.vpn := ptwReqVpnReg
+
+  // 默认
+  io.req.ready := (state === s_idle)
+  io.resp.valid := false.B
+  io.resp.bits.paddr := 0.U
+  io.resp.bits.miss := false.B
+  io.resp.bits.exception := false.B
+  io.ptw.resp.ready := (state === s_wait_ptw)
+
   val reqVpn = io.req.bits.vaddr(parameter.vaddrBits - 1, parameter.pageOffsetBits)
   val hitVec = VecInit((0 until nEntries).map(i => valid(i) && vpn(i) === reqVpn))
   val hit = hitVec.asUInt.orR
   val hitEntry = WireDefault(0.U(log2Ceil(nEntries).W))
   for (i <- 0 until nEntries) { when(hitVec(i)) { hitEntry := i.U } }
-  io.resp.valid := io.req.valid
-  io.resp.bits.paddr := Cat(pfn(hitEntry), io.req.bits.vaddr(parameter.pageOffsetBits - 1, 0))
-  io.resp.bits.miss := !hit
-  io.resp.bits.exception := false.B
-  io.ptw.req.valid := io.req.valid && !hit
-  io.ptw.req.bits.vpn := reqVpn
-  when(io.ptw.resp.fire) {
-    val replaceEntry = 0.U(log2Ceil(nEntries).W)
-    valid(replaceEntry) := io.ptw.resp.bits.valid
-    vpn(replaceEntry) := io.ptw.req.bits.vpn
-    pfn(replaceEntry) := io.ptw.resp.bits.pte(pfnBits - 1, 0)
+
+  switch(state) {
+    is(s_idle) {
+      ptwReqValidReg := false.B
+      when(io.req.valid) {
+        when(hit) {
+          io.resp.valid := true.B
+          io.resp.bits.paddr := Cat(pfn(hitEntry), io.req.bits.vaddr(parameter.pageOffsetBits - 1, 0))
+          io.resp.bits.miss := false.B
+          io.resp.bits.exception := false.B
+        }.otherwise {
+          // miss: 发PTW请求，保存请求
+          savedReq := io.req.bits
+          savedVpn := reqVpn
+          ptwReqValidReg := true.B
+          ptwReqVpnReg := reqVpn
+          state := s_wait_ptw
+        }
+      }
+    }
+    is(s_wait_ptw) {
+      ptwReqValidReg := false.B
+      when(io.ptw.resp.valid) {
+        // 写TLB（简单替换策略：第一个无效，否则替换0号）
+        val invalidVec = VecInit(valid.map(!_))
+        val hasInvalid = invalidVec.asUInt.orR
+        val replaceEntry = WireDefault(0.U(log2Ceil(nEntries).W))
+        when(hasInvalid) {
+          replaceEntry := PriorityEncoder(invalidVec)
+        }.otherwise {
+          replaceEntry := 0.U
+        }
+        valid(replaceEntry) := io.ptw.resp.bits.valid
+        vpn(replaceEntry) := savedVpn
+        pfn(replaceEntry) := io.ptw.resp.bits.pte(pfnBits - 1, 0)
+        // 返回resp
+        io.resp.valid := true.B
+        io.resp.bits.paddr := Cat(io.ptw.resp.bits.pte(pfnBits - 1, 0), savedReq.vaddr(parameter.pageOffsetBits - 1, 0))
+        io.resp.bits.miss := false.B
+        io.resp.bits.exception := !io.ptw.resp.bits.valid
+        when(io.resp.ready) {
+          state := s_idle
+        }
+      }
+    }
   }
-  io.req.ready := io.resp.ready
-  io.ptw.resp.ready := true.B
 }
 
 /** GPU Cache main module Implements set-associative cache with TLB and MSHR support Interface and parameter style
   * matches ICache
   */
 @instantiable
-class GpuCache(val parameter: GpuCacheParameter)
-    extends FixedIORawModule(new GpuCacheInterface(parameter))
-    with SerializableModule[GpuCacheParameter]
+class GPUCache(val parameter: GPUCacheParameter)
+    extends FixedIORawModule(new GPUCacheInterface(parameter))
+    with SerializableModule[GPUCacheParameter]
     with Public
     with ImplicitClock
     with ImplicitReset {
@@ -162,9 +215,9 @@ class GpuCache(val parameter: GpuCacheParameter)
   override protected def implicitReset: Reset = io.reset
 
   // TLB instance for address translation
-  val tlb = Module(new GpuTLB(parameter))
+  val tlb = Module(new GPUTLB(parameter))
   // MSHR array for miss tracking and merge
-  val mshrs = RegInit(VecInit(Seq.fill(parameter.nMSHRs)(0.U.asTypeOf(new GpuMSHREntry(parameter)))))
+  val mshrs = RegInit(VecInit(Seq.fill(parameter.nMSHRs)(0.U.asTypeOf(new GPUMSHREntry(parameter)))))
   val mshrValid = RegInit(VecInit(Seq.fill(parameter.nMSHRs)(false.B)))
 
   // Cache structure
@@ -230,12 +283,13 @@ class GpuCache(val parameter: GpuCacheParameter)
 
   // Select an MSHR to send memory request
   val mshrToMemory = WireDefault(0.U(log2Ceil(parameter.nMSHRs).W))
+  // Use priority encoder to select the first valid MSHR
   for (i <- 0 until parameter.nMSHRs) {
-    when(mshrValid(i) && !io.memory.req.valid) {
+    when(mshrValid(i)) {
       mshrToMemory := i.U
     }
   }
-  io.memory.req.valid := mshrValid(mshrToMemory) && !io.memory.req.ready
+  io.memory.req.valid := mshrValid(mshrToMemory)
   io.memory.req.bits.addr := mshrs(mshrToMemory).paddr
   io.memory.req.bits.cmd := mshrs(mshrToMemory).cmd
   io.memory.req.bits.size := mshrs(mshrToMemory).size
@@ -245,19 +299,37 @@ class GpuCache(val parameter: GpuCacheParameter)
   when(io.memory.resp.fire) {
     val mshrIdx = mshrToMemory
     val mshr = mshrs(mshrIdx)
+    val mshrPaddr = mshr.paddr
+    val mshrIdx_cache = mshrPaddr(offsetBits + indexBits - 1, offsetBits)
+    val mshrTag = mshrPaddr(parameter.paddrBits - 1, offsetBits + indexBits)
+
+    // Read current cache state for this index
+    val mshrTagVec = tags.read(mshrIdx_cache, true.B)
+    val mshrValidVec = valids(mshrIdx_cache)
+    val mshrDataVec = dataArray.read(mshrIdx_cache, true.B)
+
+    // Find a way to allocate (simple LRU replacement)
     val way = WireDefault(0.U(log2Ceil(parameter.nWays).W))
-    when(hit) { way := hitWay }
-    val updatedTagVec = Wire(Vec(parameter.nWays, tagVec(0).cloneType))
     for (i <- 0 until parameter.nWays) {
-      updatedTagVec(i) := Mux(i.U === way, reqTag, tagVec(i))
+      when(!mshrValidVec(i)) {
+        way := i.U
+      }
     }
-    tags.write(reqIdx, updatedTagVec)
-    valids(reqIdx)(way) := true.B
-    val updatedDataVec = Wire(Vec(parameter.nWays, dataVec(0).cloneType))
+
+    // Update cache
+    val updatedTagVec = Wire(Vec(parameter.nWays, mshrTagVec(0).cloneType))
     for (i <- 0 until parameter.nWays) {
-      updatedDataVec(i) := Mux(i.U === way, io.memory.resp.bits.data, dataVec(i))
+      updatedTagVec(i) := Mux(i.U === way, mshrTag, mshrTagVec(i))
     }
-    dataArray.write(reqIdx, updatedDataVec)
+    tags.write(mshrIdx_cache, updatedTagVec)
+    valids(mshrIdx_cache)(way) := true.B
+    val updatedDataVec = Wire(Vec(parameter.nWays, mshrDataVec(0).cloneType))
+    for (i <- 0 until parameter.nWays) {
+      updatedDataVec(i) := Mux(i.U === way, io.memory.resp.bits.data, mshrDataVec(i))
+    }
+    dataArray.write(mshrIdx_cache, updatedDataVec)
+
+    // Clear waiting bits and MSHR
     for (i <- 0 until 4) {
       when(mshr.waiting(i)) {
         mshrs(mshrIdx).waiting(i) := false.B
@@ -279,9 +351,8 @@ class GpuCache(val parameter: GpuCacheParameter)
   io.resp.bits.exception := tlbRespReg.miss || (!hit && !mshrHit && tlbValidReg && (reqReg.cmd === 0.U))
 
   // Write operation (on hit)
-  when(tlb.io.resp.fire && reqReg.cmd === 1.U && hit) {
-    val way = WireDefault(0.U(log2Ceil(parameter.nWays).W))
-    when(hit) { way := hitWay }
+  when(tlbValidReg && reqReg.cmd === 1.U && hit) {
+    val way = hitWay
     val updatedTagVec = Wire(Vec(parameter.nWays, tagVec(0).cloneType))
     for (i <- 0 until parameter.nWays) {
       updatedTagVec(i) := Mux(i.U === way, reqTag, tagVec(i))
