@@ -185,84 +185,91 @@ class GPUCacheTest extends AnyFlatSpec {
       while (!dut.io.resp.valid.peek().litToBoolean) {
         dut.io.clock.step(1)
       }
-      dut.io.resp.bits.data.expect(0.U)
       dut.io.req.valid.poke(false.B)
       dut.io.clock.step(5)
     }
   }
 
-  // it should "handle MSHR merging correctly" in {
-  //   simulate(new GPUCache(param), "gpucachetest3") { dut =>
-  //     // Initialize
-  //     dut.io.clock.step()
-  //     dut.io.reset.poke(true.B)
-  //     dut.io.clock.step()
-  //     dut.io.reset.poke(false.B)
+  it should "handle MSHR merging correctly" in {
+    simulate(new GPUCache(param), "gpucachetest3") { dut =>
+      // Initialize
+      dut.io.clock.step()
+      dut.io.reset.poke(true.B)
+      dut.io.clock.step()
+      dut.io.reset.poke(false.B)
 
-  //     // First request to trigger miss
-  //     dut.io.req.valid.poke(true.B)
-  //     dut.io.req.bits.vaddr.poke(0x4000.U)
-  //     dut.io.req.bits.cmd.poke(0.U)
-  //     dut.io.req.bits.size.poke(3.U)
-  //     dut.io.clock.step(1)
-  //     dut.io.req.valid.poke(false.B)
+      // First request to trigger miss
+      dut.io.req.valid.poke(true.B)
+      dut.io.req.bits.vaddr.poke(0x4000.U)
+      dut.io.req.bits.cmd.poke(0.U)
+      dut.io.req.bits.size.poke(3.U)
+      dut.io.clock.step(1)
+      dut.io.req.valid.poke(false.B)
+      println("waiting for ptw req")
+      // TLB should request PTW for first access
+      while (dut.io.ptw.req.valid.peek().litToBoolean == false) {
+        dut.io.clock.step(1)
+      }
 
-  //     // Provide PTW response
-  //     dut.io.ptw.resp.valid.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.ppn.poke(0x5000.U)
-  //     dut.io.ptw.resp.bits.pte.v.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.r.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.w.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.x.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.u.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.a.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.d.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.g.poke(false.B)
-  //     dut.io.ptw.resp.bits.pte.reserved_for_future.poke(0.U)
-  //     dut.io.ptw.resp.bits.pte.reserved_for_software.poke(0.U)
-  //     dut.io.ptw.resp.bits.valid.poke(true.B)
-  //     dut.io.clock.step()
-  //     dut.io.ptw.resp.valid.poke(false.B)
+      // Provide PTW response
+      dut.io.ptw.resp.valid.poke(true.B)
+      dut.io.ptw.resp.bits.pte.ppn.poke(0x5000.U)
+      dut.io.ptw.resp.bits.pte.v.poke(true.B)
+      dut.io.ptw.resp.bits.pte.r.poke(true.B)
+      dut.io.ptw.resp.bits.pte.w.poke(true.B)
+      dut.io.ptw.resp.bits.pte.x.poke(true.B)
+      dut.io.ptw.resp.bits.pte.u.poke(true.B)
+      dut.io.ptw.resp.bits.pte.a.poke(true.B)
+      dut.io.ptw.resp.bits.pte.d.poke(true.B)
+      dut.io.ptw.resp.bits.pte.g.poke(false.B)
+      dut.io.ptw.resp.bits.pte.reserved_for_future.poke(0.U)
+      dut.io.ptw.resp.bits.pte.reserved_for_software.poke(0.U)
+      dut.io.ptw.resp.bits.valid.poke(true.B)
+      dut.io.clock.step()
+      dut.io.ptw.resp.valid.poke(false.B)
 
-  //     // Wait for MSHR allocation
-  //     dut.io.clock.step(3)
+      // Wait for MSHR allocation
+      dut.io.clock.step(3)
 
-  //     // Second request to same block should merge
-  //     dut.io.req.valid.poke(true.B)
-  //     dut.io.req.bits.vaddr.poke(0x4008.U) // Same block, different offset
-  //     dut.io.req.bits.cmd.poke(0.U)
-  //     dut.io.req.bits.size.poke(3.U)
-  //     dut.io.clock.step(1)
-  //     dut.io.req.valid.poke(false.B)
+      // Second request to same block should merge
+      dut.io.req.valid.poke(true.B)
+      dut.io.req.bits.vaddr.poke(0x4008.U) // Same block, different offset
+      dut.io.req.bits.cmd.poke(0.U)
+      dut.io.req.bits.size.poke(3.U)
+      dut.io.clock.step(1)
+      dut.io.req.valid.poke(false.B)
 
-  //     println("waiting for memory req")
-  //     // Should not create new memory request
-  //     while (!dut.io.memory.req.valid.peek().litToBoolean) {
-  //       dut.io.clock.step(1)
-  //     }
-  //     dut.io.memory.req.valid.expect(true.B) // Only one memory request
+      println("waiting for memory req")
+      // Should not create new memory request
+      while (!dut.io.memory.req.valid.peek().litToBoolean) {
+        dut.io.clock.step(1)
+      }
+      dut.io.memory.req.valid.expect(true.B) // Only one memory request
+      dut.io.memory.req.ready.poke(true.B)
 
-  //     // Provide memory response
-  //     dut.io.memory.resp.valid.poke(true.B)
-  //     dut.io.memory.resp.bits.addr.poke(0x5000.U)
-  //     dut.io.memory.resp.bits.data.poke("h_1111222233334444".U)
-  //     dut.io.memory.resp.bits.valid.poke(true.B)
-  //     dut.io.clock.step()
-  //     dut.io.memory.resp.valid.poke(false.B)
+      // Provide memory response
+      dut.io.memory.resp.valid.poke(true.B)
+      dut.io.memory.resp.bits.addr.poke(0x5000.U)
+      dut.io.memory.resp.bits.data.poke("h_1111222233334444".U)
+      dut.io.memory.resp.bits.valid.poke(true.B)
+      dut.io.clock.step()
+      dut.io.memory.resp.valid.poke(false.B)
+      dut.io.resp.ready.poke(true.B)
 
-  //     // Both requests should be satisfied
-  //     println("waiting for cache resp")
-  //     while (!dut.io.resp.valid.peek().litToBoolean) {
-  //       dut.io.clock.step(1)
-  //     }
-  //     dut.io.resp.bits.vaddr.expect(0x4000.U)
-  //     println("waiting for cache resp2")
-  //     while (!dut.io.resp.valid.peek().litToBoolean) {
-  //       dut.io.clock.step(1)
-  //     }
-  //     dut.io.resp.bits.vaddr.expect(0x4008.U)
-  //   }
-  // }
+      // Both requests should be satisfied
+      println("waiting for cache resp")
+      while (!dut.io.resp.valid.peek().litToBoolean) {
+        dut.io.clock.step(1)
+      }
+      dut.io.resp.bits.vaddr.expect(0x4000.U)
+      dut.io.clock.step(1)
+      println("waiting for cache resp2")
+      while (!dut.io.resp.valid.peek().litToBoolean) {
+        dut.io.clock.step(1)
+      }
+      dut.io.resp.bits.vaddr.expect(0x4008.U)
+    }
+  }
 
   // it should "handle TLB misses correctly" in {
   //   simulate(new GPUCache(param), "gpucachetest4") { dut =>

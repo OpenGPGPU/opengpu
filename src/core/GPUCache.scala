@@ -228,12 +228,24 @@ class GPUCache(val parameter: GPUCacheParameter)
   // MSHR array for miss tracking and merge
   val mshrs = RegInit(VecInit(Seq.fill(parameter.nMSHRs)(0.U.asTypeOf(new GPUMSHREntry(parameter)))))
   val mshrValid = RegInit(VecInit(Seq.fill(parameter.nMSHRs)(false.B)))
-  // 等待队列，记录每个MSHR等待的请求
-  val mshrWaitVaddr = Reg(Vec(parameter.nMSHRs, Vec(4, UInt(parameter.vaddrBits.W))))
-  val mshrWaitValid = Reg(Vec(parameter.nMSHRs, Vec(4, Bool())))
-  val mshrWaitCmd = Reg(Vec(parameter.nMSHRs, Vec(4, UInt(2.W))))
-  val mshrWaitSize = Reg(Vec(parameter.nMSHRs, Vec(4, UInt(3.W))))
-  val mshrWaitData = Reg(Vec(parameter.nMSHRs, Vec(4, UInt(parameter.dataWidth.W))))
+  // 1. 定义waiting请求Bundle
+  class MSHRWaitingReq(parameter: GPUCacheParameter) extends Bundle {
+    val vaddr = UInt(parameter.vaddrBits.W)
+    val cmd = UInt(2.W)
+    val size = UInt(3.W)
+    val data = UInt(parameter.dataWidth.W)
+  }
+  // 2. 在GPUCache类中实例化SimpleFIFOQueue（先生成模块，再把io放到Vec里，支持UInt索引且所有端口都被驱动）
+  val mshrWaitingQueuesSeq = Seq.tabulate(parameter.nMSHRs) { i =>
+    Module(new SimpleFIFOQueue(new MSHRWaitingReq(parameter), 4)).io
+  }
+  val mshrWaitingQueues = VecInit(mshrWaitingQueuesSeq)
+  // 默认赋值，防止端口未初始化
+  for (i <- 0 until parameter.nMSHRs) {
+    mshrWaitingQueues(i).enq.valid := false.B
+    mshrWaitingQueues(i).enq.bits := 0.U.asTypeOf(new MSHRWaitingReq(parameter))
+    mshrWaitingQueues(i).deq.ready := false.B
+  }
 
   // 请求队列，用于处理资源不足的情况
   val reqQueue = Reg(Vec(8, new GPUCacheReq(parameter))) // 8个深度的请求队列
@@ -346,17 +358,14 @@ class GPUCache(val parameter: GPUCacheParameter)
         .elsewhen(mshrHit) {
           // 合并到已有MSHR，记录等待请求
           val idx = mshrHitIdx
-          val slot = WireDefault(0.U(2.W))
-          for (j <- 0 until 4) {
-            when(!mshrWaitValid(idx)(j)) { slot := j.U }
-          }
-          mshrWaitVaddr(idx)(slot) := reqReg.vaddr
-          mshrWaitCmd(idx)(slot) := reqReg.cmd
-          mshrWaitSize(idx)(slot) := reqReg.size
-          mshrWaitData(idx)(slot) := reqReg.data
-          mshrWaitValid(idx)(slot) := true.B
-
-          // MSHR命中时，请求会被合并，不需要立即响应
+          // 只负责enq，不要在主分支访问deq.bits
+          val waitingReq = Wire(new MSHRWaitingReq(parameter))
+          waitingReq.vaddr := reqReg.vaddr
+          waitingReq.cmd := reqReg.cmd
+          waitingReq.size := reqReg.size
+          waitingReq.data := reqReg.data
+          mshrWaitingQueues(idx).enq.valid := true.B
+          mshrWaitingQueues(idx).enq.bits := waitingReq
           // 响应将在内存数据返回时通过响应状态机处理
         }
         // 2.3 缓存未命中，MSHR未命中，但有可用MSHR
@@ -369,15 +378,15 @@ class GPUCache(val parameter: GPUCacheParameter)
           mshrs(idx).size := reqReg.size
           mshrs(idx).data := reqReg.data
           mshrs(idx).memoryReqSent := false.B
-          // 第一个等待请求
-          mshrWaitVaddr(idx)(0) := reqReg.vaddr
-          mshrWaitCmd(idx)(0) := reqReg.cmd
-          mshrWaitSize(idx)(0) := reqReg.size
-          mshrWaitData(idx)(0) := reqReg.data
-          mshrWaitValid(idx)(0) := true.B
-          for (j <- 1 until 4) { mshrWaitValid(idx)(j) := false.B }
-
-          // 新miss时，请求会被等待，不需要立即响应
+          // 4. 新miss分配MSHR时，直接enq到队列
+          val freeIdx = mshrFreeIdx
+          val firstReq = Wire(new MSHRWaitingReq(parameter))
+          firstReq.vaddr := reqReg.vaddr
+          firstReq.cmd := reqReg.cmd
+          firstReq.size := reqReg.size
+          firstReq.data := reqReg.data
+          mshrWaitingQueues(freeIdx).enq.valid := true.B
+          mshrWaitingQueues(freeIdx).enq.bits := firstReq
           // 响应将在内存数据返回时通过响应状态机处理
         }
         // 2.4 缓存未命中，MSHR未命中，且MSHR满
@@ -417,7 +426,6 @@ class GPUCache(val parameter: GPUCacheParameter)
   val s_resp_idle :: s_resp_waiting :: Nil = Enum(2)
   val respState = RegInit(s_resp_idle)
   val respMshrIdx = Reg(UInt(log2Ceil(parameter.nMSHRs).W))
-  val respWaitingIdx = Reg(UInt(2.W))
   val respData = Reg(UInt(parameter.dataWidth.W))
   val respVaddr = Reg(UInt(parameter.vaddrBits.W))
 
@@ -451,51 +459,37 @@ class GPUCache(val parameter: GPUCacheParameter)
     // 启动响应状态机
     respState := s_resp_waiting
     respMshrIdx := idx
-    respWaitingIdx := 0.U
     respData := io.memory.resp.bits.data
-    respVaddr := mshrWaitVaddr(idx)(0) // 第一个等待请求的虚拟地址
+    // 不直接访问deq.bits，respVaddr将在deq.valid时赋值
   }
 
   // 响应状态机处理
   when(respState === s_resp_waiting) {
     val idx = respMshrIdx
-    val waitingIdx = respWaitingIdx
-
-    // 检查当前等待槽是否有效
-    when(mshrWaitValid(idx)(waitingIdx)) {
-      val cmd = mshrWaitCmd(idx)(waitingIdx)
+    when(mshrWaitingQueues(idx).deq.valid) {
+      val req = mshrWaitingQueues(idx).deq.bits
+      val cmd = req.cmd
       val isLoad = cmd === 0.U
       val isStore = cmd === 1.U
 
-      // 只有load操作需要返回数据，store操作只需要确认完成
+      // 只在deq.valid时赋值respVaddr
+      respVaddr := req.vaddr
+
       when(isLoad) {
         io.resp.valid := true.B
-        io.resp.bits.vaddr := mshrWaitVaddr(idx)(waitingIdx)
+        io.resp.bits.vaddr := req.vaddr
         io.resp.bits.data := respData
         io.resp.bits.exception := false.B
       }.elsewhen(isStore) {
-        // Store操作也需要响应，但数据字段可以为0或原始数据
         io.resp.valid := true.B
-        io.resp.bits.vaddr := mshrWaitVaddr(idx)(waitingIdx)
-        io.resp.bits.data := 0.U // Store操作通常不需要返回数据
+        io.resp.bits.vaddr := req.vaddr
+        io.resp.bits.data := 0.U
         io.resp.bits.exception := false.B
       }
-
-      // 清除当前等待槽
-      mshrWaitValid(idx)(waitingIdx) := false.B
-
-      // 移动到下一个等待槽
-      when(io.resp.ready || (!isLoad && !isStore)) {
-        respWaitingIdx := respWaitingIdx + 1.U
-        when(respWaitingIdx < 3.U) {
-          respVaddr := mshrWaitVaddr(idx)(respWaitingIdx + 1.U)
-        }
-      }
+      mshrWaitingQueues(idx).deq.ready := io.resp.ready
     }
-
-    // 检查是否所有等待请求都已处理完
-    val allProcessed = !mshrWaitValid(idx).asUInt.orR
-    when(allProcessed) {
+    // 只要队列空了就idle
+    when(!mshrWaitingQueues(idx).deq.valid) {
       respState := s_resp_idle
       mshrValid(idx) := false.B
       mshrs(idx).memoryReqSent := false.B
