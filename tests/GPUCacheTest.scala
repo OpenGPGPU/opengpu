@@ -271,102 +271,113 @@ class GPUCacheTest extends AnyFlatSpec {
     }
   }
 
-  // it should "handle TLB misses correctly" in {
-  //   simulate(new GPUCache(param), "gpucachetest4") { dut =>
-  //     // Initialize
-  //     dut.io.clock.step()
-  //     dut.io.reset.poke(true.B)
-  //     dut.io.clock.step()
-  //     dut.io.reset.poke(false.B)
+  it should "handle TLB misses correctly" in {
+    simulate(new GPUCache(param), "gpucachetest4") { dut =>
+      // Initialize
+      dut.io.clock.step()
+      dut.io.reset.poke(true.B)
+      dut.io.clock.step()
+      dut.io.reset.poke(false.B)
 
-  //     // Request with TLB miss
-  //     dut.io.req.valid.poke(true.B)
-  //     dut.io.req.bits.vaddr.poke(0x6000.U)
-  //     dut.io.req.bits.cmd.poke(0.U)
-  //     dut.io.req.bits.size.poke(3.U)
-  //     dut.io.clock.step(1)
-  //     dut.io.req.valid.poke(false.B)
+      // Request with TLB miss
+      dut.io.req.valid.poke(true.B)
+      dut.io.req.bits.vaddr.poke(0x6000.U)
+      dut.io.req.bits.cmd.poke(0.U)
+      dut.io.req.bits.size.poke(3.U)
+      dut.io.clock.step(1)
+      dut.io.req.valid.poke(false.B)
 
-  //     // TLB should request PTW
-  //     println("waiting for ptw")
-  //     while (!dut.io.ptw.req.valid.peek().litToBoolean) {
-  //       dut.io.clock.step(1)
-  //     }
-  //     dut.io.ptw.req.bits.vpn.expect(0x6.U)
+      // TLB should request PTW
+      println("waiting for ptw")
+      while (!dut.io.ptw.req.valid.peek().litToBoolean) {
+        dut.io.clock.step(1)
+      }
+      dut.io.ptw.req.bits.vpn.expect(0x6.U)
 
-  //     // Provide invalid PTW response
-  //     dut.io.ptw.resp.valid.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.ppn.poke(0.U)
-  //     dut.io.ptw.resp.bits.pte.v.poke(false.B) // Invalid translation
-  //     dut.io.ptw.resp.bits.pte.r.poke(false.B)
-  //     dut.io.ptw.resp.bits.pte.w.poke(false.B)
-  //     dut.io.ptw.resp.bits.pte.x.poke(false.B)
-  //     dut.io.ptw.resp.bits.pte.u.poke(false.B)
-  //     dut.io.ptw.resp.bits.pte.a.poke(false.B)
-  //     dut.io.ptw.resp.bits.pte.d.poke(false.B)
-  //     dut.io.ptw.resp.bits.pte.g.poke(false.B)
-  //     dut.io.ptw.resp.bits.pte.reserved_for_future.poke(0.U)
-  //     dut.io.ptw.resp.bits.pte.reserved_for_software.poke(0.U)
-  //     dut.io.ptw.resp.bits.valid.poke(false.B) // Invalid translation
-  //     dut.io.clock.step()
-  //     dut.io.ptw.resp.valid.poke(false.B)
+      // Provide invalid PTW response
+      dut.io.ptw.resp.valid.poke(true.B)
+      dut.io.ptw.resp.bits.pte.ppn.poke(0.U)
+      dut.io.ptw.resp.bits.pte.v.poke(false.B) // Invalid translation
+      dut.io.ptw.resp.bits.pte.r.poke(false.B)
+      dut.io.ptw.resp.bits.pte.w.poke(false.B)
+      dut.io.ptw.resp.bits.pte.x.poke(false.B)
+      dut.io.ptw.resp.bits.pte.u.poke(false.B)
+      dut.io.ptw.resp.bits.pte.a.poke(false.B)
+      dut.io.ptw.resp.bits.pte.d.poke(false.B)
+      dut.io.ptw.resp.bits.pte.g.poke(false.B)
+      dut.io.ptw.resp.bits.pte.reserved_for_future.poke(0.U)
+      dut.io.ptw.resp.bits.pte.reserved_for_software.poke(0.U)
+      dut.io.ptw.resp.bits.valid.poke(false.B) // Invalid translation
+      dut.io.clock.step()
+      dut.io.ptw.resp.valid.poke(false.B)
 
-  //     // Should generate exception
-  //     println("waiting for cache resp")
-  //     while (!dut.io.resp.valid.peek().litToBoolean) {
-  //       dut.io.clock.step(1)
-  //     }
-  //     dut.io.resp.bits.exception.expect(true.B)
-  //   }
-  // }
+      // Should generate exception
+      println("waiting for cache resp")
+      while (!dut.io.resp.valid.peek().litToBoolean) {
+        dut.io.clock.step(1)
+      }
+      dut.io.resp.bits.exception.expect(true.B)
+    }
+  }
 
-  // it should "handle different access sizes correctly" in {
-  //   simulate(new GPUCache(param), "gpucachetest5") { dut =>
-  //     // Initialize
-  //     dut.io.clock.step()
-  //     dut.io.reset.poke(true.B)
-  //     dut.io.clock.step()
-  //     dut.io.reset.poke(false.B)
+  it should "handle different access sizes correctly" in {
+    simulate(new GPUCache(param), "gpucachetest5") { dut =>
+      // Initialize
+      dut.io.clock.step()
+      dut.io.reset.poke(true.B)
+      dut.io.clock.step()
+      dut.io.reset.poke(false.B)
 
-  //     // Test byte access
-  //     dut.io.req.valid.poke(true.B)
-  //     dut.io.req.bits.vaddr.poke(0x7000.U)
-  //     dut.io.req.bits.cmd.poke(0.U)
-  //     dut.io.req.bits.size.poke(0.U) // 1 byte
-  //     dut.io.clock.step(1)
-  //     dut.io.req.valid.poke(false.B)
+      // Test byte access
+      dut.io.req.valid.poke(true.B)
+      dut.io.req.bits.vaddr.poke(0x7000.U)
+      dut.io.req.bits.cmd.poke(0.U)
+      dut.io.req.bits.size.poke(0.U) // 1 byte
+      dut.io.clock.step(1)
+      dut.io.req.valid.poke(false.B)
+      // TLB should request PTW
+      println("waiting for ptw")
+      while (!dut.io.ptw.req.valid.peek().litToBoolean) {
+        dut.io.clock.step(1)
+      }
 
-  //     // Provide PTW response
-  //     dut.io.ptw.resp.valid.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.ppn.poke(0x8000.U)
-  //     dut.io.ptw.resp.bits.pte.v.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.r.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.w.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.x.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.u.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.a.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.d.poke(true.B)
-  //     dut.io.ptw.resp.bits.pte.g.poke(false.B)
-  //     dut.io.ptw.resp.bits.pte.reserved_for_future.poke(0.U)
-  //     dut.io.ptw.resp.bits.pte.reserved_for_software.poke(0.U)
-  //     dut.io.ptw.resp.bits.valid.poke(true.B)
-  //     dut.io.clock.step()
-  //     dut.io.ptw.resp.valid.poke(false.B)
+      // Provide PTW response
+      dut.io.ptw.resp.valid.poke(true.B)
+      dut.io.ptw.resp.bits.pte.ppn.poke(0x8000.U)
+      dut.io.ptw.resp.bits.pte.v.poke(true.B)
+      dut.io.ptw.resp.bits.pte.r.poke(true.B)
+      dut.io.ptw.resp.bits.pte.w.poke(true.B)
+      dut.io.ptw.resp.bits.pte.x.poke(true.B)
+      dut.io.ptw.resp.bits.pte.u.poke(true.B)
+      dut.io.ptw.resp.bits.pte.a.poke(true.B)
+      dut.io.ptw.resp.bits.pte.d.poke(true.B)
+      dut.io.ptw.resp.bits.pte.g.poke(false.B)
+      dut.io.ptw.resp.bits.pte.reserved_for_future.poke(0.U)
+      dut.io.ptw.resp.bits.pte.reserved_for_software.poke(0.U)
+      dut.io.ptw.resp.bits.valid.poke(true.B)
+      dut.io.clock.step()
+      dut.io.ptw.resp.valid.poke(false.B)
 
-  //     // Provide memory response
-  //     dut.io.memory.resp.valid.poke(true.B)
-  //     dut.io.memory.resp.bits.addr.poke(0x8000.U)
-  //     dut.io.memory.resp.bits.data.poke("h_aa".U)
-  //     dut.io.memory.resp.bits.valid.poke(true.B)
-  //     dut.io.clock.step()
-  //     dut.io.memory.resp.valid.poke(false.B)
+      println("waiting for memory req")
+      // Should not create new memory request
+      while (!dut.io.memory.req.valid.peek().litToBoolean) {
+        dut.io.clock.step(1)
+      }
+      dut.io.clock.step(1)
+      // Provide memory response
+      dut.io.memory.resp.valid.poke(true.B)
+      dut.io.memory.resp.bits.addr.poke(0x8000.U)
+      dut.io.memory.resp.bits.data.poke("h_aa".U)
+      dut.io.memory.resp.bits.valid.poke(true.B)
+      dut.io.clock.step()
+      dut.io.memory.resp.valid.poke(false.B)
 
-  //     // Verify response
-  //     println("waiting for cache resp")
-  //     while (!dut.io.resp.valid.peek().litToBoolean) {
-  //       dut.io.clock.step(1)
-  //     }
-  //     dut.io.resp.bits.data.expect("h_aa".U)
-  //   }
-  // }
+      // Verify response
+      println("waiting for cache resp")
+      while (!dut.io.resp.valid.peek().litToBoolean) {
+        dut.io.clock.step(1)
+      }
+      dut.io.resp.bits.data.expect("h_aa".U)
+    }
+  }
 }
