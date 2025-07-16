@@ -87,11 +87,7 @@ class WarpScoreboardInterface(val parameter: WarpScoreboardParameter) extends Bu
     val warpID = UInt(log2Ceil(parameter.warpNum).W)
     val addr = UInt(5.W)
   })
-  val clear = Input(new Bundle {
-    val en = Bool()
-    val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val addr = UInt(5.W)
-  })
+  val clear = Input(new ScoreboardClearBundle(parameter))
   val read = new WarpScoreboardReadIO(parameter)
 }
 

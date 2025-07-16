@@ -728,3 +728,18 @@ class FPUOperandBundle(parameter: OGPUDecoderParameter) extends Bundle {
   val tag_i = UInt(5.W)
   val flush = Bool()
 }
+
+// Bundle for register file writeback
+class RegFileWriteBundle(parameter: OGPUDecoderParameter) extends Bundle {
+  val en = Bool()
+  val warpID = UInt(log2Ceil(parameter.warpNum).W)
+  val addr = UInt(5.W)
+  val data = UInt(parameter.xLen.W)
+}
+
+// Bundle for scoreboard clear
+class ScoreboardClearBundle(parameter: WarpScoreboardParameter) extends Bundle {
+  val en = Bool()
+  val warpID = UInt(log2Ceil(parameter.warpNum).W)
+  val addr = UInt(5.W)
+}

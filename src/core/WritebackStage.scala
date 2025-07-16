@@ -5,19 +5,8 @@ import chisel3.util._
 
 class WritebackStageIO(parameter: OGPUDecoderParameter) extends Bundle {
   val in = Flipped(DecoupledIO(new ResultBundle(parameter)))
-
-  val regFileWrite = Output(new Bundle {
-    val en = Bool()
-    val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val addr = UInt(5.W)
-    val data = UInt(parameter.xLen.W)
-  })
-
-  val clearScoreboard = Output(new Bundle {
-    val en = Bool()
-    val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val addr = UInt(5.W)
-  })
+  val regFileWrite = Output(new RegFileWriteBundle(parameter))
+  val clearScoreboard = Output(new ScoreboardClearBundle(WarpScoreboardParameter(parameter.warpNum, 32)))
 }
 
 class WritebackStage(parameter: OGPUDecoderParameter) extends Module {
