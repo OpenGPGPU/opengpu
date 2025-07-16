@@ -14,23 +14,7 @@ class FpuIssueIO(parameter: OGPUDecoderParameter) extends Bundle {
       WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4)
     )
   )
-  val fpuIssue = DecoupledIO(new Bundle {
-    val rs1Data = UInt(parameter.xLen.W)
-    val rs2Data = UInt(parameter.xLen.W)
-    val rs3Data = UInt(parameter.xLen.W)
-    val rnd_mode = UInt(3.W)
-    val op = UInt(5.W)
-    val op_mod = Bool()
-    val src_fmt = UInt(2.W)
-    val dst_fmt = UInt(2.W)
-    val int_fmt = UInt(2.W)
-    val vectorial_op = Bool()
-    val tag_i = UInt(5.W)
-    val flush = Bool()
-    val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val rd = UInt(5.W)
-    val pc = UInt(parameter.xLen.W)
-  })
+  val fpuIssue = DecoupledIO(new FPUOperandBundle(parameter))
 }
 
 class FpuIssue(val parameter: OGPUDecoderParameter) extends Module {

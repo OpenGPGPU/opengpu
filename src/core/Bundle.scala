@@ -690,6 +690,7 @@ class FrontendBundle(
 class ALUOperandBundle(parameter: OGPUDecoderParameter) extends Bundle {
   val warpID = UInt(log2Ceil(parameter.warpNum).W)
   val execType = UInt(2.W)
+  val aluFn = UInt(parameter.UOPALU.width.W)
   val funct3 = UInt(3.W)
   val funct7 = UInt(7.W)
   val pc = UInt(parameter.xLen.W)
@@ -716,7 +717,7 @@ class FPUOperandBundle(parameter: OGPUDecoderParameter) extends Bundle {
   val rs2Data = UInt(parameter.xLen.W)
   val rs3Data = UInt(parameter.xLen.W)
   val rd = UInt(5.W)
-  val isRVC = Bool()
+  // val isRVC = Bool()
   val rnd_mode = UInt(3.W)
   val op = UInt(5.W)
   val op_mod = Bool()

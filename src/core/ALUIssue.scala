@@ -15,18 +15,7 @@ class AluIssueIO(parameter: OGPUDecoderParameter) extends Bundle {
       WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 3)
     )
   )
-  val aluIssue = DecoupledIO(new Bundle {
-    val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val execType = UInt(2.W)
-    val aluFn = UInt(parameter.UOPALU.width.W)
-    val funct3 = UInt(3.W)
-    val funct7 = UInt(7.W)
-    val pc = UInt(parameter.xLen.W)
-    val rs1Data = UInt(parameter.xLen.W)
-    val rs2Data = UInt(parameter.xLen.W)
-    val rd = UInt(5.W)
-    val isRVC = Bool()
-  })
+  val aluIssue = DecoupledIO(new ALUOperandBundle(parameter))
 }
 
 class AluIssue(val parameter: OGPUDecoderParameter) extends Module {
