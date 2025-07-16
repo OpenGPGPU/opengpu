@@ -32,12 +32,14 @@ class ExecutionPipeTest extends AnyFlatSpec {
       // Setup input signals
       dut.io.in.valid.poke(true.B)
       dut.io.in.bits.warpID.poke(testWarpID)
+      dut.io.in.bits.execType.poke(0.U) // Add this if needed by ALUOperandBundle
       dut.io.in.bits.funct3.poke("b000".U) // ADD
       dut.io.in.bits.funct7.poke("b0000000".U)
       dut.io.in.bits.rs1Data.poke(rs1Data)
       dut.io.in.bits.rs2Data.poke(rs2Data)
       dut.io.in.bits.rd.poke(1.U)
       dut.io.in.bits.pc.poke(0x1000.U)
+      dut.io.in.bits.isRVC.poke(false.B)
 
       dut.io.clock.step()
 
@@ -67,12 +69,14 @@ class ExecutionPipeTest extends AnyFlatSpec {
       // Setup input signals
       dut.io.in.valid.poke(true.B)
       dut.io.in.bits.warpID.poke(testWarpID)
+      dut.io.in.bits.execType.poke(0.U) // Add this if needed by ALUOperandBundle
       dut.io.in.bits.funct3.poke("b010".U) // SUB
       dut.io.in.bits.funct7.poke("b0100000".U)
       dut.io.in.bits.rs1Data.poke(rs1Data)
       dut.io.in.bits.rs2Data.poke(rs2Data)
       dut.io.in.bits.rd.poke(2.U)
       dut.io.in.bits.pc.poke(0x1004.U)
+      dut.io.in.bits.isRVC.poke(false.B)
 
       dut.io.clock.step(3)
 
@@ -95,6 +99,15 @@ class ExecutionPipeTest extends AnyFlatSpec {
 
       // Test invalid input (bubble)
       dut.io.in.valid.poke(false.B)
+      dut.io.in.bits.warpID.poke(0.U)
+      dut.io.in.bits.execType.poke(0.U)
+      dut.io.in.bits.funct3.poke(0.U)
+      dut.io.in.bits.funct7.poke(0.U)
+      dut.io.in.bits.rs1Data.poke(0.U)
+      dut.io.in.bits.rs2Data.poke(0.U)
+      dut.io.in.bits.rd.poke(0.U)
+      dut.io.in.bits.pc.poke(0.U)
+      dut.io.in.bits.isRVC.poke(false.B)
 
       dut.io.clock.step()
 

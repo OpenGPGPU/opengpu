@@ -11,25 +11,10 @@ class ALUExecutionInterface(parameter: OGPUDecoderParameter) extends Bundle {
   val reset = Input(Bool())
 
   // Input from Issue stage
-  val in = Flipped(DecoupledIO(new Bundle {
-    val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val execType = UInt(2.W)
-    val funct3 = UInt(3.W)
-    val funct7 = UInt(7.W)
-    val pc = UInt(parameter.xLen.W)
-    val rs1Data = UInt(parameter.xLen.W)
-    val rs2Data = UInt(parameter.xLen.W)
-    val rd = UInt(5.W)
-    val isRVC = Bool()
-  }))
+  val in = Flipped(DecoupledIO(new ALUOperandBundle(parameter)))
 
   // Execution results output
-  val out = DecoupledIO(new Bundle {
-    val result = UInt(parameter.xLen.W)
-    val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val rd = UInt(5.W)
-    val exception = Bool()
-  })
+  val out = DecoupledIO(new ResultBundle(parameter))
 }
 
 @instantiable
@@ -79,4 +64,5 @@ class ALUExecution(val parameter: OGPUDecoderParameter)
   io.out.bits.warpID := outWarpIDReg
   io.out.bits.rd := outRdReg
   io.out.bits.exception := outExceptionReg
+  io.out.bits.fflags := 0.U // ALU does not set fflags
 }

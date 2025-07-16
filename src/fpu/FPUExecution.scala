@@ -11,36 +11,8 @@ class FPUExecutionInterface(parameter: OGPUDecoderParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
 
-  val in = Flipped(DecoupledIO(new Bundle {
-    val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    // val execType = UInt(2.W) // Removed as it's now part of 'op'
-    // val operation = UInt(4.W) // Removed as it's now part of 'rnd_mode' and 'op'
-    // val operation_i = Bool() // Removed as it's now 'op_mod'
-    val pc = UInt(parameter.xLen.W)
-    val rs1Data = UInt(parameter.xLen.W)
-    val rs2Data = UInt(parameter.xLen.W)
-    val rs3Data = UInt(parameter.xLen.W)
-    val rd = UInt(5.W)
-    val isRVC = Bool()
-    // FPU specific inputs
-    val rnd_mode = UInt(3.W)
-    val op = UInt(5.W)
-    val op_mod = Bool()
-    val src_fmt = UInt(2.W)
-    val dst_fmt = UInt(2.W)
-    val int_fmt = UInt(2.W)
-    val vectorial_op = Bool()
-    val tag_i = UInt(5.W)
-    val flush = Bool()
-  }))
-
-  val out = DecoupledIO(new Bundle {
-    val result = UInt(parameter.xLen.W)
-    val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val rd = UInt(5.W)
-    val exception = Bool()
-    val fflags = UInt(5.W)
-  })
+  val in = Flipped(DecoupledIO(new FPUOperandBundle(parameter)))
+  val out = DecoupledIO(new ResultBundle(parameter))
 }
 
 @instantiable
