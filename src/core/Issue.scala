@@ -43,6 +43,17 @@ class IssueStageInterface(parameter: OGPUDecoderParameter) extends Bundle {
       WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3)
     )
   )
+
+  // Scoreboard set interfaces
+  val intScoreboardSet = Output(
+    new ScoreboardSetBundle(WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 3))
+  )
+  val fpScoreboardSet = Output(
+    new ScoreboardSetBundle(WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4))
+  )
+  val vecScoreboardSet = Output(
+    new ScoreboardSetBundle(WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3))
+  )
 }
 
 class IssueStage(val parameter: OGPUDecoderParameter)
@@ -92,4 +103,20 @@ class IssueStage(val parameter: OGPUDecoderParameter)
       true.B // 默认值
     )
   )
+
+  // Scoreboard set logic - only set when instruction is actually issued (fire)
+  // ALU scoreboard set
+  io.intScoreboardSet.en := io.aluIssue.fire && (io.aluIssue.bits.rd =/= 0.U)
+  io.intScoreboardSet.warpID := io.aluIssue.bits.warpID
+  io.intScoreboardSet.addr := io.aluIssue.bits.rd
+
+  // FPU scoreboard set
+  io.fpScoreboardSet.en := io.fpuIssue.fire
+  io.fpScoreboardSet.warpID := io.fpuIssue.bits.warpID
+  io.fpScoreboardSet.addr := io.fpuIssue.bits.rd
+
+  // Vector scoreboard set (placeholder for future use)
+  io.vecScoreboardSet.en := false.B
+  io.vecScoreboardSet.warpID := 0.U
+  io.vecScoreboardSet.addr := 0.U
 }

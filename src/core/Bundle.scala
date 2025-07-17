@@ -743,3 +743,10 @@ class ScoreboardClearBundle(parameter: WarpScoreboardParameter) extends Bundle {
   val warpID = UInt(log2Ceil(parameter.warpNum).W)
   val addr = UInt(5.W)
 }
+
+// Bundle for scoreboard set
+class ScoreboardSetBundle(parameter: WarpScoreboardParameter) extends Bundle {
+  val en = Bool()
+  val warpID = UInt(log2Ceil(parameter.warpNum).W)
+  val addr = UInt(5.W)
+}

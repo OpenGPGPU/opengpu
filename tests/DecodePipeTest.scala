@@ -1,10 +1,7 @@
 import chisel3._
 import org.scalatest.flatspec.AnyFlatSpec
 import chisel3.simulator.VCDHackedEphemeralSimulator._
-import chisel3.util.experimental.decode.DecodeBundle
-import org.chipsalliance.t1.rtl.decoder.{Decoder, DecoderParam}
 
-import ogpu.vector._
 import ogpu.core._
 
 class DecodePipeTest extends AnyFlatSpec {

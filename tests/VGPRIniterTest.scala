@@ -1,5 +1,4 @@
 import chisel3._
-import chisel3.util._
 import org.scalatest.flatspec.AnyFlatSpec
 import chisel3.simulator.VCDHackedEphemeralSimulator._
 import ogpu.core._

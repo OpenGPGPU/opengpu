@@ -3,8 +3,6 @@ package ogpu.fpu
 import chisel3._
 import chisel3.experimental._
 import chisel3.util._
-import chisel3.experimental.hierarchy.instantiable
-import chisel3.experimental.SerializableModule
 import ogpu.core._
 
 class FpnewTopIO(parameter: OGPUDecoderParameter) extends Bundle {

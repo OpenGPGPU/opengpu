@@ -1,4 +1,3 @@
-import chisel3.experimental.{ExtModule, SerializableModule, SerializableModuleGenerator}
 import chisel3._
 import ogpu.core._
 import org.scalatest.flatspec.AnyFlatSpec

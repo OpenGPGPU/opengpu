@@ -6,13 +6,17 @@ format: init
 	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.reformat
 	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.test.reformat
 
-run: init format
+fix: init
+	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.fix
+	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.test.fix
+
+run: init format fix
 	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.runMain  ogpu.rtl.ALURTL
 
-test: init format
+test: init format fix
 	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.test
 
-ztest: init format
+ztest: init format fix
 	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.test -z $(MYOPT)
 
 clean:

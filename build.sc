@@ -231,11 +231,6 @@ trait OGPU extends millbuild.common.OGPUModule
       ivy"org.scalatest::scalatest:3.2.19"
     )
 
-    def scalafixIvyDeps = Agg(
-      ivy"com.github.liancheng::organize-imports:0.6.0",
-      ivy"com.github.vovapolu::implicit-conversions-safety:0.1.1"
-    )
-
     def scalacOptions = Seq(
       "-Ywarn-unused",
       "-Ymacro-annotations",

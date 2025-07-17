@@ -82,11 +82,7 @@ class ScoreboardInterface(val parameter: ScoreboardParameter) extends Bundle {
 class WarpScoreboardInterface(val parameter: WarpScoreboardParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
-  val set = Input(new Bundle {
-    val en = Bool()
-    val warpID = UInt(log2Ceil(parameter.warpNum).W)
-    val addr = UInt(5.W)
-  })
+  val set = Input(new ScoreboardSetBundle(parameter))
   val clear = Input(new ScoreboardClearBundle(parameter))
   val read = new WarpScoreboardReadIO(parameter)
 }

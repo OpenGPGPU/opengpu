@@ -2,7 +2,6 @@ import chisel3._
 
 import org.scalatest.flatspec.AnyFlatSpec
 
-import chisel3.util.experimental.loadMemoryFromFileInline
 import chisel3.simulator.VCDHackedEphemeralSimulator._
 
 import ogpu.core._
