@@ -696,6 +696,7 @@ class ALUOperandBundle(parameter: OGPUDecoderParameter) extends Bundle {
   val pc = UInt(parameter.xLen.W)
   val rs1Data = UInt(parameter.xLen.W)
   val rs2Data = UInt(parameter.xLen.W)
+  val imm = UInt(parameter.xLen.W)
   val rd = UInt(5.W)
   val isRVC = Bool()
 }
