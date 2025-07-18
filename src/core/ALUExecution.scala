@@ -15,6 +15,9 @@ class ALUExecutionInterface(parameter: OGPUDecoderParameter) extends Bundle {
 
   // Execution results output
   val out = DecoupledIO(new ResultBundle(parameter))
+
+  // Branch info output
+  val branchInfo = DecoupledIO(new BranchInfoBundle(parameter))
 }
 
 @instantiable
@@ -41,6 +44,10 @@ class ALUExecution(val parameter: OGPUDecoderParameter)
   val outRdReg = RegInit(0.U(5.W))
   val outExceptionReg = RegInit(false.B)
 
+  // Output registers for branch info
+  val branchValidReg = RegInit(false.B)
+  val branchInfoReg = Reg(new BranchInfoBundle(parameter))
+
   // ALU execution
   alu.io.dw := false.B
   alu.io.fn := Cat(io.in.bits.funct7(5), io.in.bits.funct3)
@@ -54,8 +61,19 @@ class ALUExecution(val parameter: OGPUDecoderParameter)
     outWarpIDReg := io.in.bits.warpID
     outRdReg := io.in.bits.rd
     outExceptionReg := false.B
+    branchValidReg := true.B
+    branchInfoReg.cmp_out := alu.io.cmp_out
+    branchInfoReg.warpID := io.in.bits.warpID
+    branchInfoReg.pc := io.in.bits.pc
+    branchInfoReg.imm := io.in.bits.imm
+    branchInfoReg.rs1Data := io.in.bits.rs1Data
+    branchInfoReg.isRVC := io.in.bits.isRVC
+    branchInfoReg.branch.isJal := io.in.bits.branch.isJal
+    branchInfoReg.branch.isJalr := io.in.bits.branch.isJalr
+    branchInfoReg.branch.isBranch := io.in.bits.branch.isBranch
   }.otherwise {
     outValidReg := false.B
+    branchValidReg := false.B
   }
 
   // Connect output signals
@@ -65,4 +83,8 @@ class ALUExecution(val parameter: OGPUDecoderParameter)
   io.out.bits.rd := outRdReg
   io.out.bits.exception := outExceptionReg
   io.out.bits.fflags := 0.U // ALU does not set fflags
+
+  // Connect branchInfo output
+  io.branchInfo.valid := branchValidReg
+  io.branchInfo.bits := branchInfoReg
 }

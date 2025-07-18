@@ -699,6 +699,11 @@ class ALUOperandBundle(parameter: OGPUDecoderParameter) extends Bundle {
   val imm = UInt(parameter.xLen.W)
   val rd = UInt(5.W)
   val isRVC = Bool()
+  val branch = new Bundle {
+    val isJal = Bool()
+    val isJalr = Bool()
+    val isBranch = Bool()
+  }
 }
 
 // Result bundle for use in ALU, FPU, Issue, and other modules
@@ -750,4 +755,19 @@ class ScoreboardSetBundle(parameter: WarpScoreboardParameter) extends Bundle {
   val en = Bool()
   val warpID = UInt(log2Ceil(parameter.warpNum).W)
   val addr = UInt(5.W)
+}
+
+// Branch info bundle for ALU branch output
+class BranchInfoBundle(parameter: OGPUDecoderParameter) extends Bundle {
+  val cmp_out = Bool() // ALU comparison result
+  val warpID = UInt(log2Ceil(parameter.warpNum).W)
+  val pc = UInt(parameter.xLen.W)
+  val imm = UInt(parameter.xLen.W)
+  val rs1Data = UInt(parameter.xLen.W)
+  val isRVC = Bool()
+  val branch = new Bundle {
+    val isJal = Bool()
+    val isJalr = Bool()
+    val isBranch = Bool()
+  }
 }
