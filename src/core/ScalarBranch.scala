@@ -34,26 +34,18 @@ class ScalarBranch(val parameter: OGPUDecoderParameter)
   io.branchResult.bits := 0.U.asTypeOf(io.branchResult.bits)
 
   when(io.branchInfo.valid) {
-    val pc_imm = io.branchInfo.bits.pc + io.branchInfo.bits.imm
-    val pc_rs1 = io.branchInfo.bits.rs1Data + io.branchInfo.bits.imm
-    val pc_next = io.branchInfo.bits.pc + 4.U
-
     val isJal = io.branchInfo.bits.branch.isJal
     val isJalr = io.branchInfo.bits.branch.isJalr
     val isBranch = io.branchInfo.bits.branch.isBranch
 
+    val op1 = Mux(isJal, io.branchInfo.bits.pc,
+              Mux(isJalr, io.branchInfo.bits.rs1Data, io.branchInfo.bits.pc))
+    val op2 = Mux(isJal || isJalr, io.branchInfo.bits.imm, 4.U)
+    val target = op1 + op2
+
     io.branchResult.valid := true.B
     io.branchInfo.ready := io.branchResult.ready
-
-    when(isJal) { // jal
-      io.branchResult.bits.pc := pc_imm
-      io.branchResult.bits.wid := io.branchInfo.bits.warpID
-    }.elsewhen(isJalr) { // jalr
-      io.branchResult.bits.pc := pc_rs1
-      io.branchResult.bits.wid := io.branchInfo.bits.warpID
-    }.elsewhen(isBranch) { // branch
-      io.branchResult.bits.pc := pc_imm // 或根据分支条件选择pc_next/pc_imm
-      io.branchResult.bits.wid := io.branchInfo.bits.warpID
-    }
+    io.branchResult.bits.wid := io.branchInfo.bits.warpID
+    io.branchResult.bits.pc := target
   }
 }
