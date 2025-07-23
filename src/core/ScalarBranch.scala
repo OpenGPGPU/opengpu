@@ -38,9 +38,8 @@ class ScalarBranch(val parameter: OGPUDecoderParameter)
     val isJalr = io.branchInfo.bits.branch.isJalr
     val isBranch = io.branchInfo.bits.branch.isBranch
 
-    val op1 = Mux(isJal, io.branchInfo.bits.pc,
-              Mux(isJalr, io.branchInfo.bits.rs1Data, io.branchInfo.bits.pc))
-    val op2 = Mux(isJal || isJalr, io.branchInfo.bits.imm, 4.U)
+    val op1 = Mux(isJal, io.branchInfo.bits.pc, Mux(isJalr, io.branchInfo.bits.rs1Data, io.branchInfo.bits.pc))
+    val op2 = Mux(isJal || isJalr, io.branchInfo.bits.imm, Mux(io.branchInfo.bits.isRVC, 2.U, 4.U))
     val target = op1 + op2
 
     io.branchResult.valid := true.B
