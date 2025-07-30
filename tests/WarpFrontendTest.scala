@@ -5,10 +5,13 @@ import org.scalatest.flatspec.AnyFlatSpec
 import chisel3.simulator.VCDHackedEphemeralSimulator._
 
 class WarpFrontendTest extends AnyFlatSpec {
-  val param = WarpFrontendParameter(
+  val param = OGPUParameter(
+    instructionSets = Set("rv_i", "rv_f"),
+    pipelinedMul = false,
+    fenceIFlushDCache = false,
+    warpNum = 4,
     useAsyncReset = false,
     clockGate = false,
-    warpNum = 4,
     vaddrBits = 32,
     vaddrBitsExtended = 32,
     entries = 2,

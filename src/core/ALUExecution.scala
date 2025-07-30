@@ -6,7 +6,7 @@ import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.SerializableModule
 import org.chipsalliance.rocketv.{ALU, ALUParameter}
 
-class ALUExecutionInterface(parameter: OGPUDecoderParameter) extends Bundle {
+class ALUExecutionInterface(parameter: OGPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
 
@@ -21,9 +21,9 @@ class ALUExecutionInterface(parameter: OGPUDecoderParameter) extends Bundle {
 }
 
 @instantiable
-class ALUExecution(val parameter: OGPUDecoderParameter)
+class ALUExecution(val parameter: OGPUParameter)
     extends FixedIORawModule(new ALUExecutionInterface(parameter))
-    with SerializableModule[OGPUDecoderParameter]
+    with SerializableModule[OGPUParameter]
     with Public
     with ImplicitClock
     with ImplicitReset {

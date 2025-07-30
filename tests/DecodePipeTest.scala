@@ -5,7 +5,7 @@ import chisel3.simulator.VCDHackedEphemeralSimulator._
 import ogpu.core._
 
 class DecodePipeTest extends AnyFlatSpec {
-  val param = OGPUDecoderParameter(
+  val param = OGPUParameter(
     Set("rv_v", "rv_f"),
     false,
     false,

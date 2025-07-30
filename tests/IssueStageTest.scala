@@ -5,7 +5,7 @@ import chisel3.simulator.VCDHackedEphemeralSimulator._
 import org.scalatest.flatspec.AnyFlatSpec
 
 class IssueStageTest extends AnyFlatSpec {
-  val parameter = OGPUDecoderParameter(
+  val parameter = OGPUParameter(
     Set("rv_v", "rv_f"),
     false,
     false,

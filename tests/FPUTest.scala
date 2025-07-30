@@ -3,7 +3,7 @@ package ogpu.fpu
 import chisel3._
 import chisel3.simulator.VCDHackedEphemeralSimulator._
 import org.scalatest.flatspec.AnyFlatSpec
-import ogpu.core.OGPUDecoderParameter
+import ogpu.core.OGPUParameter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -19,7 +19,7 @@ object FloatToUInt {
 
 class FPUTest extends AnyFlatSpec {
 
-  val param = OGPUDecoderParameter(
+  val param = OGPUParameter(
     Set("rv_i", "rv_f"),
     false,
     false,

@@ -19,7 +19,7 @@ class InstructionBundle(
   val pc = UInt(vaddrBitsExtended.W)
 }
 
-class DecodePipeInterface(parameter: OGPUDecoderParameter) extends Bundle {
+class DecodePipeInterface(parameter: OGPUParameter) extends Bundle {
 
   val clock = Input(Clock())
   // val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
@@ -34,9 +34,9 @@ class DecodePipeInterface(parameter: OGPUDecoderParameter) extends Bundle {
   val rvc = Output(Bool())
 }
 
-class DecodePipe(val parameter: OGPUDecoderParameter)
+class DecodePipe(val parameter: OGPUParameter)
     extends FixedIORawModule(new DecodePipeInterface(parameter))
-    with SerializableModule[OGPUDecoderParameter]
+    with SerializableModule[OGPUParameter]
     with Public
     with ImplicitClock
     with ImplicitReset {

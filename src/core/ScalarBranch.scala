@@ -5,12 +5,13 @@ import chisel3.util._
 import chisel3.experimental.SerializableModule
 import chisel3.experimental.hierarchy.instantiable
 
-class BranchResultBundle(parameter: OGPUDecoderParameter) extends Bundle {
+class BranchResultBundle(parameter: OGPUParameter) extends Bundle {
   val pc = UInt(parameter.xLen.W)
   val wid = UInt(log2Ceil(parameter.warpNum).W)
+  val target = UInt(parameter.xLen.W)
 }
 
-class ScalarBranchInterface(parameter: OGPUDecoderParameter) extends Bundle {
+class ScalarBranchInterface(parameter: OGPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
   val branchInfo = Flipped(DecoupledIO(new BranchInfoBundle(parameter)))
@@ -18,9 +19,9 @@ class ScalarBranchInterface(parameter: OGPUDecoderParameter) extends Bundle {
 }
 
 @instantiable
-class ScalarBranch(val parameter: OGPUDecoderParameter)
+class ScalarBranch(val parameter: OGPUParameter)
     extends FixedIORawModule(new ScalarBranchInterface(parameter))
-    with SerializableModule[OGPUDecoderParameter]
+    with SerializableModule[OGPUParameter]
     with Public
     with ImplicitClock
     with ImplicitReset {
@@ -45,6 +46,7 @@ class ScalarBranch(val parameter: OGPUDecoderParameter)
     io.branchResult.valid := true.B
     io.branchInfo.ready := io.branchResult.ready
     io.branchResult.bits.wid := io.branchInfo.bits.warpID
-    io.branchResult.bits.pc := target
+    io.branchResult.bits.pc := io.branchInfo.bits.pc
+    io.branchResult.bits.target := target
   }
 }

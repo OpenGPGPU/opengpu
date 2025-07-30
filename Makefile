@@ -11,7 +11,7 @@ fix: init
 	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.test.fix
 
 run: init format fix
-	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.runMain  ogpu.rtl.ALURTL
+	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.runMain  ogpu.core.ALURTL
 
 test: init format fix
 	nix --experimental-features 'nix-command flakes' develop -c mill -i ogpu.test

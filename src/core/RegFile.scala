@@ -56,7 +56,7 @@ class RegFile(val parameter: RegFileParameter)
     access(io.write.addr) := io.write.data
   }
 }
-class WarpRegFileIO(warpNum: Int, dataWidth: Int, opNum: Int = 2, parameter: OGPUDecoderParameter) extends Bundle {
+class WarpRegFileIO(warpNum: Int, dataWidth: Int, opNum: Int = 2, parameter: OGPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
   val read = Vec(

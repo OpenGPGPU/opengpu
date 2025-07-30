@@ -3,7 +3,7 @@ package ogpu.core
 import chisel3._
 import chisel3.util._
 
-class AluIssueIO(parameter: OGPUDecoderParameter) extends Bundle {
+class AluIssueIO(parameter: OGPUParameter) extends Bundle {
   val in = Flipped(DecoupledIO(new Bundle {
     val instruction = new InstructionBundle(parameter.warpNum, 32)
     val coreResult = new CoreDecoderInterface(parameter)
@@ -18,7 +18,7 @@ class AluIssueIO(parameter: OGPUDecoderParameter) extends Bundle {
   val aluIssue = DecoupledIO(new ALUOperandBundle(parameter))
 }
 
-class AluIssue(val parameter: OGPUDecoderParameter) extends Module {
+class AluIssue(val parameter: OGPUParameter) extends Module {
   val io = IO(new AluIssueIO(parameter))
 
   val inst = io.in.bits.instruction.instruction

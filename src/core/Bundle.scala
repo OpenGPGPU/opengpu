@@ -687,7 +687,7 @@ class FrontendBundle(
 }
 
 // ALU operand bundle for use in ALU, Issue, and other modules
-class ALUOperandBundle(parameter: OGPUDecoderParameter) extends Bundle {
+class ALUOperandBundle(parameter: OGPUParameter) extends Bundle {
   val warpID = UInt(log2Ceil(parameter.warpNum).W)
   val execType = UInt(2.W)
   val aluFn = UInt(parameter.UOPALU.width.W)
@@ -707,7 +707,7 @@ class ALUOperandBundle(parameter: OGPUDecoderParameter) extends Bundle {
 }
 
 // Result bundle for use in ALU, FPU, Issue, and other modules
-class ResultBundle(parameter: OGPUDecoderParameter) extends Bundle {
+class ResultBundle(parameter: OGPUParameter) extends Bundle {
   val result = UInt(parameter.xLen.W)
   val warpID = UInt(log2Ceil(parameter.warpNum).W)
   val rd = UInt(5.W)
@@ -716,7 +716,7 @@ class ResultBundle(parameter: OGPUDecoderParameter) extends Bundle {
 }
 
 // FPU operand bundle for use in FPU, Issue, and other modules
-class FPUOperandBundle(parameter: OGPUDecoderParameter) extends Bundle {
+class FPUOperandBundle(parameter: OGPUParameter) extends Bundle {
   val warpID = UInt(log2Ceil(parameter.warpNum).W)
   val pc = UInt(parameter.xLen.W)
   val rs1Data = UInt(parameter.xLen.W)
@@ -736,7 +736,7 @@ class FPUOperandBundle(parameter: OGPUDecoderParameter) extends Bundle {
 }
 
 // Bundle for register file writeback
-class RegFileWriteBundle(parameter: OGPUDecoderParameter) extends Bundle {
+class RegFileWriteBundle(parameter: OGPUParameter) extends Bundle {
   val en = Bool()
   val warpID = UInt(log2Ceil(parameter.warpNum).W)
   val addr = UInt(5.W)
@@ -758,7 +758,7 @@ class ScoreboardSetBundle(parameter: WarpScoreboardParameter) extends Bundle {
 }
 
 // Branch info bundle for ALU branch output
-class BranchInfoBundle(parameter: OGPUDecoderParameter) extends Bundle {
+class BranchInfoBundle(parameter: OGPUParameter) extends Bundle {
   val cmp_out = Bool() // ALU comparison result
   val warpID = UInt(log2Ceil(parameter.warpNum).W)
   val pc = UInt(parameter.xLen.W)

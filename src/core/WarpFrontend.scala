@@ -2,22 +2,12 @@ package ogpu.core
 
 import chisel3._
 import chisel3.util._
-import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
+import chisel3.experimental.SerializableModule
 import chisel3.experimental.hierarchy.instantiable
 
-case class WarpFrontendParameter(
-  useAsyncReset:     Boolean,
-  clockGate:         Boolean,
-  warpNum:           Int,
-  vaddrBits:         Int,
-  vaddrBitsExtended: Int,
-  entries:           Int,
-  coreInstBits:      Int,
-  fetchWidth:        Int,
-  fetchBufferSize:   Int)
-    extends SerializableModuleParameter
+// Use OGPUParameter instead of WarpFrontendParameter
 
-class WarpFrontendInterface(parameter: WarpFrontendParameter) extends Bundle {
+class WarpFrontendInterface(parameter: OGPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
 
@@ -57,11 +47,7 @@ class WarpFrontendInterface(parameter: WarpFrontendParameter) extends Bundle {
   )
 
   // Branch resolution interface
-  val branch_update = Flipped(ValidIO(new Bundle {
-    val wid = UInt(log2Ceil(parameter.warpNum).W)
-    val pc = UInt(parameter.vaddrBitsExtended.W)
-    val target = UInt(parameter.vaddrBitsExtended.W)
-  }))
+  val branch_update = Flipped(ValidIO(new BranchResultBundle(parameter)))
 
   // Add warp finish signal
   val warp_finish = Input(Valid(UInt(log2Ceil(parameter.warpNum).W)))
@@ -77,9 +63,9 @@ class WarpFrontendInterface(parameter: WarpFrontendParameter) extends Bundle {
 }
 
 @instantiable
-class WarpFrontend(val parameter: WarpFrontendParameter)
+class WarpFrontend(val parameter: OGPUParameter)
     extends FixedIORawModule(new WarpFrontendInterface(parameter))
-    with SerializableModule[WarpFrontendParameter]
+    with SerializableModule[OGPUParameter]
     with ImplicitClock
     with ImplicitReset {
 
@@ -250,10 +236,6 @@ class WarpFrontend(val parameter: WarpFrontendParameter)
     for (i <- 0 until parameter.warpNum) {
       when(branchWarpOH(i)) {
         warpBlocked(i) := false.B
-        // when(io.branch_update.bits.pc =/= warpPC(i)) {
-        //  instBuffers(i).reset := true.B
-        //  warpPC(i) := io.branch_update.bits.target
-        // }
         warpPC(i) := io.branch_update.bits.target
       }
     }

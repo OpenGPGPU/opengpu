@@ -5,7 +5,7 @@ import chisel3.experimental._
 import chisel3.util._
 import ogpu.core._
 
-class FpnewTopIO(parameter: OGPUDecoderParameter) extends Bundle {
+class FpnewTopIO(parameter: OGPUParameter) extends Bundle {
   val clk_i = Input(Clock())
   val rst_ni = Input(Bool())
   val operands_i_flat = Input(UInt((parameter.xLen * 3).W))
@@ -29,7 +29,7 @@ class FpnewTopIO(parameter: OGPUDecoderParameter) extends Bundle {
 }
 
 class fpnew_wrapper(
-  val parameter:   OGPUDecoderParameter,
+  val parameter:   OGPUParameter,
   val numOperands: Int = 3)
     extends BlackBox(
       Map(
@@ -44,7 +44,7 @@ class fpnew_wrapper(
   addPath("./out/fpuVerilogGen/compile.dest/combined.sv")
 }
 
-class FPU(val parameter: OGPUDecoderParameter) extends Module {
+class FPU(val parameter: OGPUParameter) extends Module {
   val numOperands = 3
 
   val io = IO(new Bundle {

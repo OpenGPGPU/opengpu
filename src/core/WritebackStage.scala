@@ -3,13 +3,13 @@ package ogpu.core
 import chisel3._
 import chisel3.util._
 
-class WritebackStageIO(parameter: OGPUDecoderParameter) extends Bundle {
+class WritebackStageIO(parameter: OGPUParameter) extends Bundle {
   val in = Flipped(DecoupledIO(new ResultBundle(parameter)))
   val regFileWrite = Output(new RegFileWriteBundle(parameter))
   val clearScoreboard = Output(new ScoreboardClearBundle(WarpScoreboardParameter(parameter.warpNum, 32)))
 }
 
-class WritebackStage(parameter: OGPUDecoderParameter) extends Module {
+class WritebackStage(parameter: OGPUParameter) extends Module {
   val io = IO(new WritebackStageIO(parameter))
 
   // Writeback logic

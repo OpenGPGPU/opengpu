@@ -7,7 +7,7 @@ import chisel3.experimental.SerializableModule
 
 import ogpu.core._
 
-class FPUExecutionInterface(parameter: OGPUDecoderParameter) extends Bundle {
+class FPUExecutionInterface(parameter: OGPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
 
@@ -16,9 +16,9 @@ class FPUExecutionInterface(parameter: OGPUDecoderParameter) extends Bundle {
 }
 
 @instantiable
-class FPUExecution(val parameter: OGPUDecoderParameter)
+class FPUExecution(val parameter: OGPUParameter)
     extends FixedIORawModule(new FPUExecutionInterface(parameter))
-    with SerializableModule[OGPUDecoderParameter]
+    with SerializableModule[OGPUParameter]
     with Public
     with ImplicitClock
     with ImplicitReset {

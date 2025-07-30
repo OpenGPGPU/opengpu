@@ -34,7 +34,7 @@ The FPU module can be instantiated in your Chisel code:
 import ogpu.fpu._
 import ogpu.core._
 
-val parameter = OGPUDecoderParameter(
+val parameter = OGPUParameter(
   instructionSets = Set("rv_i", "rv_f"),
   pipelinedMul = true,
   fenceIFlushDCache = false,

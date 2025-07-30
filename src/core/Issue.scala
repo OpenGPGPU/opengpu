@@ -6,7 +6,7 @@ import chisel3.experimental.SerializableModule
 import ogpu.core.{ALUOperandBundle, FPUOperandBundle}
 
 // Issue stage interface bundle
-class IssueStageInterface(parameter: OGPUDecoderParameter) extends Bundle {
+class IssueStageInterface(parameter: OGPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
 
@@ -23,14 +23,14 @@ class IssueStageInterface(parameter: OGPUDecoderParameter) extends Bundle {
   val fpuIssue = DecoupledIO(new FPUOperandBundle(parameter))
 
   // Register file interfaces
-  val intRegFile = Flipped(new RegFileReadIO(parameter.xLen, opNum = 2))
+  val intRegFile = Flipped(new RegFileReadIO(parameter.xLen, opNum = 3)) // ALU使用0-1，FPU使用2
   val fpRegFile = Flipped(new RegFileReadIO(parameter.xLen, opNum = 3))
   val vecRegFile = Flipped(new RegFileReadIO(parameter.vLen, opNum = 2))
 
   // Scoreboard interfaces
   val intScoreboard = Flipped(
     new WarpScoreboardReadIO(
-      WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 3)
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 5)
     )
   )
   val fpScoreboard = Flipped(
@@ -46,7 +46,7 @@ class IssueStageInterface(parameter: OGPUDecoderParameter) extends Bundle {
 
   // Scoreboard set interfaces
   val intScoreboardSet = Output(
-    new ScoreboardSetBundle(WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 3))
+    new ScoreboardSetBundle(WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 1))
   )
   val fpScoreboardSet = Output(
     new ScoreboardSetBundle(WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4))
@@ -56,9 +56,9 @@ class IssueStageInterface(parameter: OGPUDecoderParameter) extends Bundle {
   )
 }
 
-class IssueStage(val parameter: OGPUDecoderParameter)
+class IssueStage(val parameter: OGPUParameter)
     extends FixedIORawModule(new IssueStageInterface(parameter))
-    with SerializableModule[OGPUDecoderParameter]
+    with SerializableModule[OGPUParameter]
     with Public
     with ImplicitClock
     with ImplicitReset {
@@ -76,8 +76,19 @@ class IssueStage(val parameter: OGPUDecoderParameter)
   aluIssueModule.io.in.bits.instruction := io.in.bits.instruction
   aluIssueModule.io.in.bits.coreResult := io.in.bits.coreResult
   aluIssueModule.io.in.bits.rvc := io.in.bits.rvc
-  aluIssueModule.io.intRegFile <> io.intRegFile
-  aluIssueModule.io.intScoreboard <> io.intScoreboard
+  // ALU使用intRegFile的端口0-1
+  io.intRegFile.read(0).addr := aluIssueModule.io.intRegFile.read(0).addr
+  aluIssueModule.io.intRegFile.readData(0) := io.intRegFile.readData(0)
+  io.intRegFile.read(1).addr := aluIssueModule.io.intRegFile.read(1).addr
+  aluIssueModule.io.intRegFile.readData(1) := io.intRegFile.readData(1)
+  // ALU使用intScoreboard的端口0-2
+  io.intScoreboard.warpID := aluIssueModule.io.intScoreboard.warpID
+  io.intScoreboard.addr(0) := aluIssueModule.io.intScoreboard.addr(0)
+  io.intScoreboard.addr(1) := aluIssueModule.io.intScoreboard.addr(1)
+  io.intScoreboard.addr(2) := aluIssueModule.io.intScoreboard.addr(2)
+  aluIssueModule.io.intScoreboard.busy(0) := io.intScoreboard.busy(0)
+  aluIssueModule.io.intScoreboard.busy(1) := io.intScoreboard.busy(1)
+  aluIssueModule.io.intScoreboard.busy(2) := io.intScoreboard.busy(2)
   io.aluIssue <> aluIssueModule.io.aluIssue
 
   // FPU 子模块信号连接
@@ -86,7 +97,16 @@ class IssueStage(val parameter: OGPUDecoderParameter)
   fpuIssueModule.io.in.bits.instruction := io.in.bits.instruction
   fpuIssueModule.io.in.bits.fpuResult := io.in.bits.fpuResult
   fpuIssueModule.io.fpRegFile <> io.fpRegFile
+  // FPU使用intRegFile的端口2
+  io.intRegFile.read(2).addr := fpuIssueModule.io.intRegFile.read(0).addr
+  fpuIssueModule.io.intRegFile.readData(0) := io.intRegFile.readData(2)
   fpuIssueModule.io.fpScoreboard <> io.fpScoreboard
+  // FPU使用intScoreboard的端口3-4
+  io.intScoreboard.warpID := fpuIssueModule.io.intScoreboard.warpID
+  io.intScoreboard.addr(3) := fpuIssueModule.io.intScoreboard.addr(0)
+  io.intScoreboard.addr(4) := fpuIssueModule.io.intScoreboard.addr(1)
+  fpuIssueModule.io.intScoreboard.busy(0) := io.intScoreboard.busy(3)
+  fpuIssueModule.io.intScoreboard.busy(1) := io.intScoreboard.busy(4)
   io.fpuIssue <> fpuIssueModule.io.fpuIssue
 
   // 其他接口直通
@@ -105,7 +125,7 @@ class IssueStage(val parameter: OGPUDecoderParameter)
   )
 
   // Scoreboard set logic - only set when instruction is actually issued (fire)
-  // ALU scoreboard set
+  // ALU scoreboard set (使用端口0-2)
   io.intScoreboardSet.en := io.aluIssue.fire && (io.aluIssue.bits.rd =/= 0.U)
   io.intScoreboardSet.warpID := io.aluIssue.bits.warpID
   io.intScoreboardSet.addr := io.aluIssue.bits.rd

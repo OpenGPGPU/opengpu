@@ -178,7 +178,7 @@ class VectorFPU(parameter: VectorParameter, elementWidth: Int) extends Module {
 
   // FPU instances for each thread
   val fpus =
-    Array.tabulate(parameter.threadNum)(_ => Module(new FPU(new OGPUDecoderParameter(Set("rv_f"), false, false))))
+    Array.tabulate(parameter.threadNum)(_ => Module(new FPU(new OGPUParameter(Set("rv_f"), false, false))))
 
   // Process each thread
   for (thread <- 0 until parameter.threadNum) {
