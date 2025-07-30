@@ -107,6 +107,11 @@ class AluIssue(val parameter: OGPUDecoderParameter) extends Module {
   io.aluIssue.bits.rd := rd
   io.aluIssue.bits.isRVC := io.in.bits.rvc
 
+  // Branch control signals
+  io.aluIssue.bits.branch.isJal := decode(parameter.isJal)
+  io.aluIssue.bits.branch.isJalr := decode(parameter.isJalr)
+  io.aluIssue.bits.branch.isBranch := decode(parameter.isBranch)
+
   // ready 信号
   io.in.ready := io.aluIssue.ready
 }
