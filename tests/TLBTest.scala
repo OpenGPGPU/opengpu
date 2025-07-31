@@ -52,8 +52,7 @@ class TLBTest extends AnyFlatSpec {
       // Set up PTW status
       dut.io.ptw.ptbr.mode.poke(0x8.U)
       dut.io.ptw.req.ready.poke(1.B)
-      dut.io.ptw.status.mxr.poke(false.B)
-      dut.io.ptw.status.sum.poke(false.B)
+      // Status removed for GPU
 
       // Send translation request
       dut.io.req.valid.poke(true.B)

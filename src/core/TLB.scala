@@ -364,14 +364,9 @@ class TLB(val parameter: TLBParameter)
   val ptw_ae_array = Cat(false.B, VecInit(entries.map(_.ae_ptw)).asUInt)
   val final_ae_array = Cat(false.B, VecInit(entries.map(_.ae_final)).asUInt)
   val ptw_pf_array = Cat(false.B, VecInit(entries.map(_.pf)).asUInt)
-  val sum = io.ptw.status.sum
-  // if in hypervisor/machine mode, cannot read/write user entries.
-  // if in superviosr/user mode, "If the SUM bit in the sstatus register is set, supervisor mode software may also access pages with U=1.(from spec)"
-  val stage1_bypass =
-    Fill(entries.size, usingHypervisor.B) & (Fill(entries.size, !stage1_en) | VecInit(entries.map(_.ae_stage2)).asUInt)
-  val mxr = io.ptw.status.mxr
-  // "The vsstatus field MXR, which makes execute-only pages readable, only overrides VS-stage page protection.(from spec)"
-  val stage2_bypass = Fill(entries.size, !stage2_en)
+  // Simplified for GPU: no complex privilege checks needed
+  val stage1_bypass = Fill(entries.size, false.B)
+  val stage2_bypass = Fill(entries.size, false.B)
   // These array is for each TLB entries.
   // user mode can read: PMA OK, TLB OK, AE OK
   val pr_array =

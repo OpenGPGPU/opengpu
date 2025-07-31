@@ -194,7 +194,6 @@ class TLBPTWIO(
   val req = Decoupled(Valid(new PTWReq(vpnBits)))
   val resp = Flipped(Valid(new PTWResp(vaddrBits, pgLevels)))
   val ptbr = Input(new PTBR(xLen, maxPAddrBits, pgIdxBits))
-  val status = Input(new MStatus)
 }
 
 class TLBReq(lgMaxSize: Int, vaddrBitsExtended: Int)() extends Bundle {

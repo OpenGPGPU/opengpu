@@ -61,6 +61,21 @@ class GPUTLBPTWIO(val vpnBits: Int, val paddrBits: Int) extends Bundle {
   }))
 }
 
+/** PTW-specific memory request bundle */
+class PTWMemoryReq(paddrBits: Int, dataWidth: Int) extends Bundle {
+  val paddr = UInt(paddrBits.W)
+  val cmd = UInt(2.W) // 0 = load
+  val size = UInt(3.W) // 8 bytes for PTE
+  val data = UInt(dataWidth.W) // Not used for loads
+}
+
+/** PTW-specific memory response bundle */
+class PTWMemoryResp(paddrBits: Int, dataWidth: Int) extends Bundle {
+  val paddr = UInt(paddrBits.W)
+  val data = UInt(dataWidth.W)
+  val exception = Bool()
+}
+
 /** Memory interface for GPU cache using TileLink
   */
 class GPUMemoryIO(parameter: GPUCacheParameter) extends Bundle {
@@ -85,6 +100,8 @@ class GPUCacheInterface(parameter: GPUCacheParameter) extends Bundle {
   val resp = Decoupled(new GPUCacheResp(parameter))
   val ptw = new GPUTLBPTWIO(parameter.vaddrBits - parameter.pageOffsetBits, parameter.paddrBits)
   val memory = new GPUMemoryIO(parameter)
+  val ptwMem = Flipped(Decoupled(new PTWMemoryReq(parameter.paddrBits, parameter.dataWidth)))
+  val ptwMemResp = Decoupled(new PTWMemoryResp(parameter.paddrBits, parameter.dataWidth))
 }
 
 /** MSHR entry for miss tracking and merge waiting: which slots are waiting for this miss waitingData: data for each
@@ -298,6 +315,9 @@ class GPUCache(val parameter: GPUCacheParameter)
   io.memory.tilelink.a.valid := false.B
   io.memory.tilelink.a.bits := DontCare
   io.memory.tilelink.d.ready := true.B
+  io.ptwMem.ready := false.B
+  io.ptwMemResp.valid := false.B
+  io.ptwMemResp.bits := DontCare
 
   // === TLB连接 ===
   tlb.io.req.valid := io.req.valid
@@ -396,26 +416,78 @@ class GPUCache(val parameter: GPUCacheParameter)
         }
     }
 
-  // === memory request ===
+  // === PTW memory request handling ===
+  // PTW memory requests have higher priority than normal cache requests
+  val ptwMemReqValid = io.ptwMem.valid
+  val ptwMemReq = io.ptwMem.bits
+
+  // PTW memory request state machine
+  val s_ptw_idle :: s_ptw_wait :: s_ptw_resp :: Nil = Enum(3)
+  val ptwState = RegInit(s_ptw_idle)
+  val ptwMemReqReg = Reg(new PTWMemoryReq(parameter.paddrBits, parameter.dataWidth))
+  val ptwMemRespData = Reg(UInt(parameter.dataWidth.W))
+
+  // PTW memory request processing
+  when(ptwState === s_ptw_idle) {
+    when(ptwMemReqValid) {
+      ptwMemReqReg := ptwMemReq
+      ptwState := s_ptw_wait
+      io.ptwMem.ready := true.B
+    }
+  }
+
+  when(ptwState === s_ptw_wait) {
+    // Send memory request for PTW
+    io.memory.tilelink.a.valid := true.B
+    io.memory.tilelink.a.bits.opcode := OpCode.Get
+    io.memory.tilelink.a.bits.param := Param.tieZero
+    io.memory.tilelink.a.bits.size := ptwMemReqReg.size
+    io.memory.tilelink.a.bits.source := (parameter.nMSHRs + 1).U // Use different source for PTW
+    io.memory.tilelink.a.bits.address := ptwMemReqReg.paddr
+    io.memory.tilelink.a.bits.mask := Fill(parameter.dataWidth / 8, true.B)
+    io.memory.tilelink.a.bits.data := 0.U
+    io.memory.tilelink.a.bits.corrupt := false.B
+
+    when(io.memory.tilelink.d.fire) {
+      ptwMemRespData := io.memory.tilelink.d.bits.data
+      ptwState := s_ptw_resp
+    }
+  }
+
+  when(ptwState === s_ptw_resp) {
+    // Send response to PTW
+    io.ptwMemResp.valid := true.B
+    io.ptwMemResp.bits.paddr := ptwMemReqReg.paddr
+    io.ptwMemResp.bits.data := ptwMemRespData
+    io.ptwMemResp.bits.exception := false.B // Simplified for now
+
+    when(io.ptwMemResp.ready) {
+      ptwState := s_ptw_idle
+    }
+  }
+
+  // === Normal cache memory request ===
   // 找到第一个可用的MSHR
   val mshrToMemoryOH = VecInit((0 until parameter.nMSHRs).map(i => mshrValid(i) && !mshrs(i).memoryReqSent))
   val mshrToMemory = PriorityEncoder(mshrToMemoryOH)
   val hasMSHRToMemory = mshrToMemoryOH.asUInt.orR
 
-  io.memory.tilelink.a.valid := hasMSHRToMemory
+  // Normal cache memory requests only when PTW is not active
+  val normalMemReqValid = hasMSHRToMemory && ptwState === s_ptw_idle
+  io.memory.tilelink.a.valid := normalMemReqValid || (ptwState === s_ptw_wait)
   io.memory.tilelink.a.bits.opcode := Mux(
-    mshrs(mshrToMemory).cmd === 0.U,
+    ptwState === s_ptw_wait,
     OpCode.Get,
-    OpCode.PutFullData
+    Mux(mshrs(mshrToMemory).cmd === 0.U, OpCode.Get, OpCode.PutFullData)
   )
   io.memory.tilelink.a.bits.param := Param.tieZero
-  io.memory.tilelink.a.bits.size := mshrs(mshrToMemory).size
-  io.memory.tilelink.a.bits.source := mshrToMemory
-  io.memory.tilelink.a.bits.address := mshrs(mshrToMemory).paddr
+  io.memory.tilelink.a.bits.size := Mux(ptwState === s_ptw_wait, ptwMemReqReg.size, mshrs(mshrToMemory).size)
+  io.memory.tilelink.a.bits.source := Mux(ptwState === s_ptw_wait, (parameter.nMSHRs + 1).U, mshrToMemory)
+  io.memory.tilelink.a.bits.address := Mux(ptwState === s_ptw_wait, ptwMemReqReg.paddr, mshrs(mshrToMemory).paddr)
   io.memory.tilelink.a.bits.mask := Fill(parameter.dataWidth / 8, true.B)
-  io.memory.tilelink.a.bits.data := mshrs(mshrToMemory).data
+  io.memory.tilelink.a.bits.data := Mux(ptwState === s_ptw_wait, 0.U, mshrs(mshrToMemory).data)
   io.memory.tilelink.a.bits.corrupt := false.B
-  when(io.memory.tilelink.a.fire) {
+  when(io.memory.tilelink.a.fire && !ptwState === s_ptw_wait) {
     mshrs(mshrToMemory).memoryReqSent := true.B
   }
 
@@ -428,37 +500,45 @@ class GPUCache(val parameter: GPUCacheParameter)
   val respVaddr = Reg(UInt(parameter.vaddrBits.W))
 
   when(io.memory.tilelink.d.fire) {
-    val idx = mshrToMemory
-    val mshr = mshrs(idx)
-    val mshrPaddr = mshr.paddr
-    val mshrIdx_cache = mshrPaddr(offsetBits + indexBits - 1, offsetBits)
-    val mshrTag = mshrPaddr(parameter.paddrBits - 1, offsetBits + indexBits)
-    val mshrTagVec = tags.read(mshrIdx_cache, true.B)
-    val mshrValidVec = valids(mshrIdx_cache)
-    val mshrDataVec = dataArray.read(mshrIdx_cache, true.B)
-    // 选择替换路
-    val way = WireDefault(0.U(log2Ceil(parameter.nWays).W))
-    for (i <- 0 until parameter.nWays) {
-      when(!mshrValidVec(i)) { way := i.U }
-    }
-    // 写入tag/data
-    val updatedTagVec = Wire(Vec(parameter.nWays, mshrTagVec(0).cloneType))
-    for (i <- 0 until parameter.nWays) {
-      updatedTagVec(i) := Mux(i.U === way, mshrTag, mshrTagVec(i))
-    }
-    tags.write(mshrIdx_cache, updatedTagVec)
-    valids(mshrIdx_cache)(way) := true.B
-    val updatedDataVec = Wire(Vec(parameter.nWays, mshrDataVec(0).cloneType))
-    for (i <- 0 until parameter.nWays) {
-      updatedDataVec(i) := Mux(i.U === way, io.memory.tilelink.d.bits.data, mshrDataVec(i))
-    }
-    dataArray.write(mshrIdx_cache, updatedDataVec)
+    // Check if this is a PTW response
+    val isPTWResponse = io.memory.tilelink.d.bits.source === (parameter.nMSHRs + 1).U
 
-    // 启动响应状态机
-    respState := s_resp_waiting
-    respMshrIdx := idx
-    respData := io.memory.tilelink.d.bits.data
-    // 不直接访问deq.bits，respVaddr将在deq.valid时赋值
+    when(isPTWResponse) {
+      // PTW response is handled in the PTW state machine above
+      // This is just a safety check
+    }.otherwise {
+      val idx = mshrToMemory
+      val mshr = mshrs(idx)
+      val mshrPaddr = mshr.paddr
+      val mshrIdx_cache = mshrPaddr(offsetBits + indexBits - 1, offsetBits)
+      val mshrTag = mshrPaddr(parameter.paddrBits - 1, offsetBits + indexBits)
+      val mshrTagVec = tags.read(mshrIdx_cache, true.B)
+      val mshrValidVec = valids(mshrIdx_cache)
+      val mshrDataVec = dataArray.read(mshrIdx_cache, true.B)
+      // 选择替换路
+      val way = WireDefault(0.U(log2Ceil(parameter.nWays).W))
+      for (i <- 0 until parameter.nWays) {
+        when(!mshrValidVec(i)) { way := i.U }
+      }
+      // 写入tag/data
+      val updatedTagVec = Wire(Vec(parameter.nWays, mshrTagVec(0).cloneType))
+      for (i <- 0 until parameter.nWays) {
+        updatedTagVec(i) := Mux(i.U === way, mshrTag, mshrTagVec(i))
+      }
+      tags.write(mshrIdx_cache, updatedTagVec)
+      valids(mshrIdx_cache)(way) := true.B
+      val updatedDataVec = Wire(Vec(parameter.nWays, mshrDataVec(0).cloneType))
+      for (i <- 0 until parameter.nWays) {
+        updatedDataVec(i) := Mux(i.U === way, io.memory.tilelink.d.bits.data, mshrDataVec(i))
+      }
+      dataArray.write(mshrIdx_cache, updatedDataVec)
+
+      // 启动响应状态机
+      respState := s_resp_waiting
+      respMshrIdx := idx
+      respData := io.memory.tilelink.d.bits.data
+      // 不直接访问deq.bits，respVaddr将在deq.valid时赋值
+    }
   }
 
   // 响应状态机处理

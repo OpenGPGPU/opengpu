@@ -57,8 +57,7 @@ class FrontendTest extends AnyFlatSpec {
       dut.io.nonDiplomatic.cpu.might_request.poke(true.B)
       dut.io.nonDiplomatic.cpu.req.valid.poke(false.B)
       dut.io.nonDiplomatic.cpu.req.bits.wid.poke(2.U)
-      dut.io.nonDiplomatic.ptw.status.prv.poke(3.U)
-      dut.io.nonDiplomatic.ptw.status.v.poke(false.B)
+      // Status removed for GPU - no privilege checks needed
 
       // Verify initial PC
       dut.io.clock.step()
