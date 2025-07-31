@@ -10,7 +10,6 @@ import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import chisel3.util._
 import chisel3.util.circt.ClockGate
 import chisel3.util.experimental.BitSet
-import org.chipsalliance.amba.axi4.bundle.{AXI4BundleParameter, AXI4ROIrrevocable, AXI4RWIrrevocable}
 
 object FrontendParameter {
   implicit def bitSetP: upickle.default.ReadWriter[BitSet] = upickle.default
@@ -62,7 +61,7 @@ case class FrontendParameter(
   def usingHypervisor:       Boolean = false
   def hasUncorrectable:      Boolean = false
   def usingAtomicsOnlyForIO: Boolean = false
-  def itimParameter:         Option[AXI4BundleParameter] = None
+  def itimParameter:         Option[org.chipsalliance.tilelink.bundle.TLLinkParameter] = None
 
   // calculate
   def usingAtomicsInCache:        Boolean = usingAtomics && !usingAtomicsOnlyForIO
@@ -94,30 +93,15 @@ case class FrontendParameter(
   val coreInstBytes = (if (usingCompressed) 16 else 32) / 8
   def resetVectorBits: Int = paddrBits
   val rowBits:         Int = fetchBytes * 8
-  val instructionFetchParameter: AXI4BundleParameter = AXI4BundleParameter(
-    idWidth = 1,
-    dataWidth = rowBits,
-    addrWidth = paddrBits,
-    userReqWidth = 0,
-    userDataWidth = 0,
-    userRespWidth = 0,
-    hasAW = false,
-    hasW = false,
-    hasB = false,
-    hasAR = true,
-    hasR = true,
-    supportId = true,
-    supportRegion = false,
-    supportLen = true,
-    supportSize = true,
-    supportBurst = true,
-    supportLock = false,
-    supportCache = false,
-    supportQos = false,
-    supportStrb = false,
-    supportResp = false,
-    supportProt = false
-  )
+  val instructionFetchParameter: org.chipsalliance.tilelink.bundle.TLLinkParameter =
+    org.chipsalliance.tilelink.bundle.TLLinkParameter(
+      addressWidth = paddrBits,
+      sourceWidth = 1,
+      sinkWidth = 1,
+      dataWidth = rowBits,
+      sizeWidth = 3,
+      hasBCEChannels = false
+    )
 
   def icacheParameter: ICacheParameter = ICacheParameter(
     useAsyncReset = useAsyncReset,
@@ -181,10 +165,10 @@ class FrontendInterface(parameter: FrontendParameter) extends Bundle {
     parameter.hasUncorrectable,
     parameter.fetchWidth
   )
-  val instructionFetchAXI: AXI4ROIrrevocable =
-    org.chipsalliance.amba.axi4.bundle.AXI4ROIrrevocable(parameter.instructionFetchParameter)
-  val itimAXI: Option[AXI4RWIrrevocable] =
-    parameter.itimParameter.map(p => Flipped(org.chipsalliance.amba.axi4.bundle.AXI4RWIrrevocable(p)))
+  val instructionFetchTileLink: org.chipsalliance.tilelink.bundle.TLLink =
+    new org.chipsalliance.tilelink.bundle.TLLink(parameter.instructionFetchParameter)
+  val itimTileLink: Option[org.chipsalliance.tilelink.bundle.TLLink] =
+    parameter.itimParameter.map(p => Flipped(new org.chipsalliance.tilelink.bundle.TLLink(p)))
 }
 
 @instantiable
@@ -245,8 +229,9 @@ class Frontend(val parameter: FrontendParameter)
   icache.io.clock := gated_clock
   icache.io.reset := io.reset
   icache.io.clock_enabled := clock_en
-  (icache.io.itimAXI.zip(io.itimAXI)).foreach { case (frontend, itim) => itim :<>= frontend }
-  io.instructionFetchAXI :<>= icache.io.instructionFetchAXI
+  // Connect ITIM TileLink if available
+  (icache.io.itimTileLink.zip(io.itimTileLink)).foreach { case (frontend, itim) => itim :<>= frontend }
+  io.instructionFetchTileLink :<>= icache.io.instructionFetchTileLink
   val tlb = Instantiate(new TLB(parameter.tlbParameter))
   tlb.io.clock := gated_clock
   tlb.io.reset := io.reset

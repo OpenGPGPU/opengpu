@@ -65,22 +65,21 @@ class GPUCacheTest extends AnyFlatSpec {
 
       println("waiting for memory req")
       // Cache should miss and request from memory
-      while (!dut.io.memory.req.valid.peek().litToBoolean) {
+      while (!dut.io.memory.tilelink.a.valid.peek().litToBoolean) {
         dut.io.clock.step(1)
       }
       val pageOffsetBits = 12 // 4KB page
       val pfn = 0x2000
       val expectedPaddr = pfn << pageOffsetBits
-      dut.io.memory.req.bits.addr.expect(expectedPaddr.U) // Physical address
-      dut.io.memory.req.bits.cmd.expect(0.U) // Load
+      dut.io.memory.tilelink.a.bits.address.expect(expectedPaddr.U) // Physical address
+      dut.io.memory.tilelink.a.bits.opcode.expect(4.U) // Get
 
       // Provide memory response
-      dut.io.memory.resp.valid.poke(true.B)
-      dut.io.memory.resp.bits.addr.poke(0x2000.U)
-      dut.io.memory.resp.bits.data.poke("h_dead_beef_cafe_babe".U)
-      dut.io.memory.resp.bits.valid.poke(true.B)
+      dut.io.memory.tilelink.d.valid.poke(true.B)
+      dut.io.memory.tilelink.d.bits.data.poke("h_dead_beef_cafe_babe".U)
+      dut.io.memory.tilelink.d.bits.opcode.poke(1.U) // AccessAckData
       dut.io.clock.step()
-      dut.io.memory.resp.valid.poke(false.B)
+      dut.io.memory.tilelink.d.valid.poke(false.B)
 
       // Cache should respond with data
       println("waiting for cache resp")
@@ -144,17 +143,16 @@ class GPUCacheTest extends AnyFlatSpec {
       dut.io.ptw.resp.valid.poke(false.B)
       println("waiting for memory req")
       // Cache should miss and request from memory
-      while (!dut.io.memory.req.valid.peek().litToBoolean) {
+      while (!dut.io.memory.tilelink.a.valid.peek().litToBoolean) {
         dut.io.clock.step(1)
       }
 
       // Provide memory response for load
-      dut.io.memory.resp.valid.poke(true.B)
-      dut.io.memory.resp.bits.addr.poke(0x3000.U)
-      dut.io.memory.resp.bits.data.poke("h_1234567890abcdef".U)
-      dut.io.memory.resp.bits.valid.poke(true.B)
+      dut.io.memory.tilelink.d.valid.poke(true.B)
+      dut.io.memory.tilelink.d.bits.data.poke("h_1234567890abcdef".U)
+      dut.io.memory.tilelink.d.bits.opcode.poke(1.U) // AccessAckData
       dut.io.clock.step()
-      dut.io.memory.resp.valid.poke(false.B)
+      dut.io.memory.tilelink.d.valid.poke(false.B)
 
       // Wait for load to complete
       dut.io.clock.step(5)
@@ -240,19 +238,18 @@ class GPUCacheTest extends AnyFlatSpec {
 
       println("waiting for memory req")
       // Should not create new memory request
-      while (!dut.io.memory.req.valid.peek().litToBoolean) {
+      while (!dut.io.memory.tilelink.a.valid.peek().litToBoolean) {
         dut.io.clock.step(1)
       }
-      dut.io.memory.req.valid.expect(true.B) // Only one memory request
-      dut.io.memory.req.ready.poke(true.B)
+      dut.io.memory.tilelink.a.valid.expect(true.B) // Only one memory request
+      dut.io.memory.tilelink.a.ready.poke(true.B)
 
       // Provide memory response
-      dut.io.memory.resp.valid.poke(true.B)
-      dut.io.memory.resp.bits.addr.poke(0x5000.U)
-      dut.io.memory.resp.bits.data.poke("h_1111222233334444".U)
-      dut.io.memory.resp.bits.valid.poke(true.B)
+      dut.io.memory.tilelink.d.valid.poke(true.B)
+      dut.io.memory.tilelink.d.bits.data.poke("h_1111222233334444".U)
+      dut.io.memory.tilelink.d.bits.opcode.poke(1.U) // AccessAckData
       dut.io.clock.step()
-      dut.io.memory.resp.valid.poke(false.B)
+      dut.io.memory.tilelink.d.valid.poke(false.B)
       dut.io.resp.ready.poke(true.B)
 
       // Both requests should be satisfied
@@ -359,17 +356,16 @@ class GPUCacheTest extends AnyFlatSpec {
 
       println("waiting for memory req")
       // Should not create new memory request
-      while (!dut.io.memory.req.valid.peek().litToBoolean) {
+      while (!dut.io.memory.tilelink.a.valid.peek().litToBoolean) {
         dut.io.clock.step(1)
       }
       dut.io.clock.step(1)
       // Provide memory response
-      dut.io.memory.resp.valid.poke(true.B)
-      dut.io.memory.resp.bits.addr.poke(0x8000.U)
-      dut.io.memory.resp.bits.data.poke("h_aa".U)
-      dut.io.memory.resp.bits.valid.poke(true.B)
+      dut.io.memory.tilelink.d.valid.poke(true.B)
+      dut.io.memory.tilelink.d.bits.data.poke("h_aa".U)
+      dut.io.memory.tilelink.d.bits.opcode.poke(1.U) // AccessAckData
       dut.io.clock.step()
-      dut.io.memory.resp.valid.poke(false.B)
+      dut.io.memory.tilelink.d.valid.poke(false.B)
 
       // Verify response
       println("waiting for cache resp")

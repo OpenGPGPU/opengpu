@@ -72,21 +72,21 @@ class FrontendTest extends AnyFlatSpec {
       dut.io.nonDiplomatic.cpu.req.valid.poke(false.B)
 
       dut.io.clock.step(5)
-      dut.io.instructionFetchAXI.ar.ready.poke(true.B)
+      dut.io.instructionFetchTileLink.a.ready.poke(true.B)
 
       var i = 0
-      while (dut.io.instructionFetchAXI.ar.valid.peek().litToBoolean == true && i < 100) {
+      while (dut.io.instructionFetchTileLink.a.valid.peek().litToBoolean == true && i < 100) {
         i = i + 1
         dut.io.clock.step()
       }
       dut.io.clock.step()
-      dut.io.instructionFetchAXI.r.valid.poke(true.B)
-      dut.io.instructionFetchAXI.r.bits.data.poke("h_dead_beef".U)
-      dut.io.instructionFetchAXI.r.bits.last.poke(false.B)
+      dut.io.instructionFetchTileLink.d.valid.poke(true.B)
+      dut.io.instructionFetchTileLink.d.bits.data.poke("h_dead_beef".U)
+      dut.io.instructionFetchTileLink.d.bits.opcode.poke(1.U) // AccessAckData
       dut.io.clock.step(7)
-      dut.io.instructionFetchAXI.r.bits.last.poke(true.B)
+      dut.io.instructionFetchTileLink.d.bits.opcode.poke(0.U) // AccessAck
       dut.io.clock.step()
-      dut.io.instructionFetchAXI.r.valid.poke(false.B)
+      dut.io.instructionFetchTileLink.d.valid.poke(false.B)
       while (dut.io.nonDiplomatic.cpu.resp.valid.peek().litToBoolean == false && i < 200) {
         dut.io.clock.step()
         i = i + 1

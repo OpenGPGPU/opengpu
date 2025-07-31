@@ -18,6 +18,7 @@ import $file.depends.arithmetic.common
 import $file.depends.`chisel-interface`.common
 import $file.depends.`hardfloat`.common
 import $file.depends.`rvdecoderdb`.common
+import $file.depends.`tilelink`.common
 import $file.common
 
 object v {
@@ -87,6 +88,16 @@ trait RVDecoderDB extends millbuild.depends.rvdecoderdb.common.RVDecoderDBJVMMod
   def osLibIvy                = v.oslib
   def upickleIvy              = v.upickle
   override def millSourcePath = os.pwd / "depends" / "rvdecoderdb" / "rvdecoderdb"
+}
+
+object tilelink extends TileLink
+
+trait TileLink extends millbuild.depends.`tilelink`.common.TileLinkModule {
+  override def millSourcePath = os.pwd / "depends" / "tilelink" / "tilelink"
+  def scalaVersion            = T(v.scala)
+
+  def chisel3Module    = chisel
+  def chisel3PluginJar = T(chisel.pluginModule.jar())
 }
 
 object dwbb extends DWBB
@@ -188,6 +199,7 @@ trait OGPU extends millbuild.common.OGPUModule
   def axi4Module        = axi4
   def hardfloatModule   = hardfloat
   def rvdecoderdbModule = rvdecoderdb
+  def tilelinkModule    = tilelink
   def stdlibModule      = stdlib
   def T1Module          = t1
   def RocketvModule     = rocketv

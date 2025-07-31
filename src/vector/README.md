@@ -141,10 +141,10 @@ val shuffledResult = vectorShuffle.io.out.bits.result
 
 ### Parameter Configuration
 
-The vector units use the `OGPUParameter` for configuration:
+The vector units use the `OGPUDecoderParameter` for configuration:
 
 ```scala
-case class OGPUParameter(
+case class OGPUDecoderParameter(
   xLen: Int,           // Scalar register width
   threadNum: Int,      // Number of threads per warp
   warpNum: Int,        // Number of warps

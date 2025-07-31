@@ -23,3 +23,6 @@
 	path = depends/fpnew
 	url = https://github.com/OpenGPGPU/cvfpu.git
 	branch = main
+[submodule "depends/tilelink"]
+	path = depends/tilelink
+	url = https://github.com/chipsalliance/tilelink.git

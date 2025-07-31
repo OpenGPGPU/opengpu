@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import chisel3.experimental.hierarchy.instantiable
+import org.chipsalliance.tilelink.bundle._
 
 /** GPU Cache parameter case class, similar to ICacheParameter. Contains all configuration for the cache structure.
   */
@@ -60,28 +61,19 @@ class GPUTLBPTWIO(val vpnBits: Int, val paddrBits: Int) extends Bundle {
   }))
 }
 
-/** Memory request bundle (from cache to memory system)
-  */
-class GPUMemoryReq(parameter: GPUCacheParameter) extends Bundle {
-  val addr = UInt(parameter.paddrBits.W)
-  val cmd = UInt(2.W)
-  val size = UInt(3.W)
-  val data = UInt(parameter.dataWidth.W)
-}
-
-/** Memory response bundle (from memory system to cache)
-  */
-class GPUMemoryResp(parameter: GPUCacheParameter) extends Bundle {
-  val addr = UInt(parameter.paddrBits.W)
-  val data = UInt(parameter.dataWidth.W)
-  val valid = Bool()
-}
-
-/** Memory interface for GPU cache
+/** Memory interface for GPU cache using TileLink
   */
 class GPUMemoryIO(parameter: GPUCacheParameter) extends Bundle {
-  val req = Decoupled(new GPUMemoryReq(parameter))
-  val resp = Flipped(Decoupled(new GPUMemoryResp(parameter)))
+  val tilelink = new TLLink(
+    TLLinkParameter(
+      addressWidth = parameter.paddrBits,
+      sourceWidth = 4,
+      sinkWidth = 4,
+      dataWidth = parameter.dataWidth,
+      sizeWidth = 3,
+      hasBCEChannels = false
+    )
+  )
 }
 
 /** GPU Cache top-level interface (IO bundle) Includes request/response, PTW, and memory interface
@@ -303,11 +295,9 @@ class GPUCache(val parameter: GPUCacheParameter)
   io.resp.bits.vaddr := 0.U
   io.resp.bits.data := 0.U
   io.resp.bits.exception := false.B
-  io.memory.req.valid := false.B
-  io.memory.req.bits.addr := 0.U
-  io.memory.req.bits.cmd := 0.U
-  io.memory.req.bits.size := 0.U
-  io.memory.req.bits.data := 0.U
+  io.memory.tilelink.a.valid := false.B
+  io.memory.tilelink.a.bits := DontCare
+  io.memory.tilelink.d.ready := true.B
 
   // === TLB连接 ===
   tlb.io.req.valid := io.req.valid
@@ -412,12 +402,20 @@ class GPUCache(val parameter: GPUCacheParameter)
   val mshrToMemory = PriorityEncoder(mshrToMemoryOH)
   val hasMSHRToMemory = mshrToMemoryOH.asUInt.orR
 
-  io.memory.req.valid := hasMSHRToMemory
-  io.memory.req.bits.addr := mshrs(mshrToMemory).paddr
-  io.memory.req.bits.cmd := mshrs(mshrToMemory).cmd
-  io.memory.req.bits.size := mshrs(mshrToMemory).size
-  io.memory.req.bits.data := mshrs(mshrToMemory).data
-  when(io.memory.req.fire) {
+  io.memory.tilelink.a.valid := hasMSHRToMemory
+  io.memory.tilelink.a.bits.opcode := Mux(
+    mshrs(mshrToMemory).cmd === 0.U,
+    OpCode.Get,
+    OpCode.PutFullData
+  )
+  io.memory.tilelink.a.bits.param := Param.tieZero
+  io.memory.tilelink.a.bits.size := mshrs(mshrToMemory).size
+  io.memory.tilelink.a.bits.source := mshrToMemory
+  io.memory.tilelink.a.bits.address := mshrs(mshrToMemory).paddr
+  io.memory.tilelink.a.bits.mask := Fill(parameter.dataWidth / 8, true.B)
+  io.memory.tilelink.a.bits.data := mshrs(mshrToMemory).data
+  io.memory.tilelink.a.bits.corrupt := false.B
+  when(io.memory.tilelink.a.fire) {
     mshrs(mshrToMemory).memoryReqSent := true.B
   }
 
@@ -429,7 +427,7 @@ class GPUCache(val parameter: GPUCacheParameter)
   val respData = Reg(UInt(parameter.dataWidth.W))
   val respVaddr = Reg(UInt(parameter.vaddrBits.W))
 
-  when(io.memory.resp.fire) {
+  when(io.memory.tilelink.d.fire) {
     val idx = mshrToMemory
     val mshr = mshrs(idx)
     val mshrPaddr = mshr.paddr
@@ -452,14 +450,14 @@ class GPUCache(val parameter: GPUCacheParameter)
     valids(mshrIdx_cache)(way) := true.B
     val updatedDataVec = Wire(Vec(parameter.nWays, mshrDataVec(0).cloneType))
     for (i <- 0 until parameter.nWays) {
-      updatedDataVec(i) := Mux(i.U === way, io.memory.resp.bits.data, mshrDataVec(i))
+      updatedDataVec(i) := Mux(i.U === way, io.memory.tilelink.d.bits.data, mshrDataVec(i))
     }
     dataArray.write(mshrIdx_cache, updatedDataVec)
 
     // 启动响应状态机
     respState := s_resp_waiting
     respMshrIdx := idx
-    respData := io.memory.resp.bits.data
+    respData := io.memory.tilelink.d.bits.data
     // 不直接访问deq.bits，respVaddr将在deq.valid时赋值
   }
 
@@ -499,7 +497,7 @@ class GPUCache(val parameter: GPUCacheParameter)
   // === ready信号 ===
   io.req.ready := tlb.io.req.ready && !reqValidReg && !reqQueueFull
   tlb.io.resp.ready := !tlbValidReg || !reqValidReg
-  io.memory.resp.ready := true.B
+  // TileLink D channel ready is set in default assignments
 
   // 请求队列处理
   // 当主流水线无法处理请求时，将其加入队列

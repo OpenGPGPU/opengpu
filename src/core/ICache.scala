@@ -10,14 +10,7 @@ import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import chisel3.util.random.LFSR
 import chisel3.util._
 import org.chipsalliance.rocketv.{Code, ICacheErrors, ICachePerfEvents, ICacheReq, ICacheResp, IdentityCode}
-import org.chipsalliance.amba.axi4.bundle.{
-  AXI4BundleParameter,
-  AXI4ChiselBundle,
-  AXI4ROIrrevocable,
-  AXI4RWIrrevocable,
-  R,
-  W
-}
+import org.chipsalliance.tilelink.bundle._
 import org.chipsalliance.dwbb.stdlib.queue.Queue
 
 case class ICacheParameter(
@@ -31,15 +24,15 @@ case class ICacheParameter(
   paddrBits:     Int)
     extends SerializableModuleParameter {
   // static for now
-  val latency:          Int = 2
-  val itimAXIParameter: Option[AXI4BundleParameter] = None
-  val itimBaseAddr:     Option[BigInt] = None
-  val tagECC:           Option[String] = None
-  val dataECC:          Option[String] = None
+  val latency:               Int = 2
+  val itimTileLinkParameter: Option[TLLinkParameter] = None
+  val itimBaseAddr:          Option[BigInt] = None
+  val tagECC:                Option[String] = None
+  val dataECC:               Option[String] = None
   // calculated
   // todo: param?
   val fetchBytes: Int = 4
-  val usingITIM:  Boolean = itimAXIParameter.isDefined
+  val usingITIM:  Boolean = itimTileLinkParameter.isDefined
   val tagCode:    Code = Code.fromString(tagECC)
   val dataCode:   Code = Code.fromString(dataECC)
   //  (cacheParams.tagCode.canDetect || cacheParams.dataCode.canDetect).option(Valid(UInt(paddrBits.W)))
@@ -47,7 +40,7 @@ case class ICacheParameter(
   //  (cacheParams.itimAddr.nonEmpty && cacheParams.dataCode.canDetect).option(Valid(UInt(paddrBits.W)))
   val hasUncorrekoctable: Boolean = itimBaseAddr.nonEmpty && dataCode.canDetect
   val isDM:               Boolean = nWays == 1
-  // axi data with
+  // tilelink data with
   val rowBits:      Int = fetchBytes * 8
   val refillCycles: Int = blockBytes * 8 / rowBits
   val blockOffBits: Int = log2Up(blockBytes)
@@ -56,29 +49,13 @@ case class ICacheParameter(
   val untagBits:    Int = blockOffBits + idxBits
   val pgUntagBits:  Int = if (usingVM) untagBits.min(pgIdxBits) else untagBits
   val tagBits:      Int = paddrBits - pgUntagBits
-  val instructionFetchParameter: AXI4BundleParameter = AXI4BundleParameter(
-    idWidth = 1,
+  val instructionFetchParameter: TLLinkParameter = TLLinkParameter(
+    addressWidth = paddrBits,
+    sourceWidth = 1,
+    sinkWidth = 1,
     dataWidth = rowBits,
-    addrWidth = paddrBits,
-    userReqWidth = 0,
-    userDataWidth = 0,
-    userRespWidth = 0,
-    hasAW = false,
-    hasW = false,
-    hasB = false,
-    hasAR = true,
-    hasR = true,
-    supportId = true,
-    supportRegion = false,
-    supportLen = true,
-    supportSize = true,
-    supportBurst = true,
-    supportLock = false,
-    supportCache = false,
-    supportQos = false,
-    supportStrb = false,
-    supportResp = false,
-    supportProt = false
+    sizeWidth = 3,
+    hasBCEChannels = false
   )
 }
 
@@ -134,11 +111,11 @@ class ICacheInterface(parameter: ICacheParameter) extends Bundle {
   /** I$ miss or ITIM access will still enable clock even [[ICache]] is asked to be gated. */
   val keep_clock_enabled = Output(Bool())
 
-  val instructionFetchAXI: AXI4ROIrrevocable =
-    org.chipsalliance.amba.axi4.bundle.AXI4ROIrrevocable(parameter.instructionFetchParameter)
+  val instructionFetchTileLink: TLLink =
+    new TLLink(parameter.instructionFetchParameter)
 
-  val itimAXI: Option[AXI4RWIrrevocable] =
-    parameter.itimAXIParameter.map(p => Flipped(org.chipsalliance.amba.axi4.bundle.AXI4RWIrrevocable(p)))
+  val itimTileLink: Option[TLLink] =
+    parameter.itimTileLinkParameter.map(p => Flipped(new TLLink(p)))
 }
 
 @instantiable
@@ -257,15 +234,16 @@ class ICache(val parameter: ICacheParameter)
   def scratchpadLine(addr: UInt) = addr(untagBits + log2Ceil(nWays) - 1, blockOffBits)
 
   /** scratchpad access valid in stage N */
-  val s0_slaveValid = io.itimAXI.map(axi => axi.w.fire || axi.ar.fire).getOrElse(false.B)
-  val s0_slaveWriteValid = io.itimAXI.map(axi => axi.w.fire).getOrElse(false.B)
+  val s0_slaveValid = io.itimTileLink.map(tl => tl.a.fire).getOrElse(false.B)
+  val s0_slaveWriteValid =
+    io.itimTileLink.map(tl => tl.a.fire && tl.a.bits.opcode === OpCode.PutFullData).getOrElse(false.B)
 
   val s1_slaveValid = RegNext(s0_slaveValid, false.B)
   val s1_slaveWriteValid = RegNext(s0_slaveWriteValid, false.B)
   val s2_slaveValid = RegNext(s1_slaveValid, false.B)
   val s2_slaveWriteValid = RegNext(s1_slaveWriteValid, false.B)
   val s3_slaveValid = RegNext(false.B)
-  val arQueue = Queue.io(chiselTypeOf(io.instructionFetchAXI.ar.bits), 1, flow = true)
+  val tlQueue = Queue.io(chiselTypeOf(io.instructionFetchTileLink.a.bits), 1, flow = true)
 
   /** valid signal for CPU accessing cache in stage 0. */
   val s0_valid = io.req.fire
@@ -314,7 +292,7 @@ class ICache(val parameter: ICacheParameter)
 
   /** indicate [[tl_out]] is performing a refill. */
   //  val refill_fire = tl_out.a.fire && !send_hint
-  val refill_fire = arQueue.enq.fire && !send_hint
+  val refill_fire = tlQueue.enq.fire && !send_hint
 
   /** register to indicate there is a outstanding hint. */
   val hint_outstanding = RegInit(false.B)
@@ -337,22 +315,19 @@ class ICache(val parameter: ICacheParameter)
   /** AccessAckData, is refilling I$, it will block request from CPU. */
   //  val refill_one_beat = tl_out.d.fire && edge_out.hasData(tl_out.d.bits)
   // TODO: check hasData?
-  val refill_one_beat = io.instructionFetchAXI.r.fire
+  val refill_one_beat =
+    io.instructionFetchTileLink.d.fire && io.instructionFetchTileLink.d.bits.opcode === OpCode.AccessAckData
 
   /** block request from CPU when refill or scratch pad access. */
   io.req.ready := !(refill_one_beat || s0_slaveValid || s3_slaveValid)
   s1_valid := s0_valid
 
-  // tod: package
-  def axiHelper(x: AXI4ChiselBundle, fire: Bool): (Bool, Bool, Bool, UInt) = {
+  // TODO: implement TileLink helper function
+  def tlHelper(x: org.chipsalliance.tilelink.bundle.TLChannel, fire: Bool): (Bool, Bool, Bool, UInt) = {
     // same as len
     val count = RegInit(0.U(8.W))
     val first = count === 0.U
-    val last: Bool = x match {
-      case r: R => r.last
-      case w: W => w.last
-      case _ => true.B
-    }
+    val last: Bool = true.B // For now, assume single beat transactions
     val done = last && fire
     when(fire) {
       count := Mux(last, 0.U, count + 1.U)
@@ -360,13 +335,13 @@ class ICache(val parameter: ICacheParameter)
     (first, last, done, count)
   }
 
-  val (_, _, d_done, d_refill_count) = axiHelper(io.instructionFetchAXI.r.bits, io.instructionFetchAXI.r.fire)
+  val (_, _, d_done, d_refill_count) = tlHelper(io.instructionFetchTileLink.d.bits, io.instructionFetchTileLink.d.fire)
 
   /** at last beat of `tl_out.d.fire`, finish refill. */
   val refill_done = refill_one_beat && d_done
 
   /** scratchpad is writing data. block refill. */
-  io.instructionFetchAXI.r.ready := !s3_slaveValid
+  io.instructionFetchTileLink.d.ready := !s3_slaveValid
   //  require(edge_out.manager.minLatency > 0)
 
   /** way to be replaced, implemented with a hardcoded random replacement algorithm */
@@ -415,7 +390,7 @@ class ICache(val parameter: ICacheParameter)
   //    ccover(refillError, "D_CORRUPT", "I$ D-channel corrupt")
   // notify CPU, I$ has corrupt.
   // flase.B ->  (tl_out.d.bits.denied || tl_out.d.bits.corrupt)
-  io.errors.bus.valid := io.instructionFetchAXI.r.fire && false.B
+  io.errors.bus.valid := io.instructionFetchTileLink.d.fire && false.B
   io.errors.bus.bits := (refill_paddr >> blockOffBits) << blockOffBits
 
   /** true indicate this cacheline is valid, indexed by (wayIndex ## setIndex) after refill_done and not FENCE.I,
@@ -454,7 +429,7 @@ class ICache(val parameter: ICacheParameter)
 
   /** address accessed by [[tl_in]] for ITIM. */
   //  val s0_slaveAddr = tl_in.map(_.a.bits.address).getOrElse(0.U)
-  val s0_slaveAddr = io.itimAXI.map(_.aw.bits.addr).getOrElse(0.U)
+  val s0_slaveAddr = io.itimTileLink.map(_.a.bits.address).getOrElse(0.U)
 
   /** address used at stage 1 and 3.
     * {{{
@@ -511,7 +486,7 @@ class ICache(val parameter: ICacheParameter)
     !(s1_valid || s1_slaveValid) || PopCount(s1_tag_hit.zip(s1_tag_disparity).map { case (h, d) => h && !d }) <= 1.U
   )
 
-  require(io.instructionFetchAXI.r.bits.data.getWidth % wordBits == 0)
+  require(io.instructionFetchTileLink.d.bits.data.getWidth % wordBits == 0)
 
   /** Data SRAM
     *
@@ -537,7 +512,7 @@ class ICache(val parameter: ICacheParameter)
     * instructions) at once,they will be allocated in deferent bank according to vaddr[2]
     */
   val icacheDataSRAM: Seq[SRAMInterface[Vec[UInt]]] =
-    Seq.tabulate(io.instructionFetchAXI.r.bits.data.getWidth / wordBits) { i =>
+    Seq.tabulate(io.instructionFetchTileLink.d.bits.data.getWidth / wordBits) { i =>
       SRAM.masked(
         size = nSets * refillCycles,
         tpe = Vec(nWays, UInt(dECC.width(wordBits).W)),
@@ -551,9 +526,9 @@ class ICache(val parameter: ICacheParameter)
 
     /** bank match (vaddr[2]) */
     def wordMatch(addr: UInt): Bool = {
-      if (io.instructionFetchAXI.r.bits.data.getWidth == wordBits) { true.B }
+      if (io.instructionFetchTileLink.d.bits.data.getWidth == wordBits) { true.B }
       else {
-        addr(log2Ceil(io.instructionFetchAXI.r.bits.data.getWidth / 8) - 1, log2Ceil(wordBits / 8)) === i.U
+        addr(log2Ceil(io.instructionFetchTileLink.d.bits.data.getWidth / 8) - 1, log2Ceil(wordBits / 8)) === i.U
       }
     }
 
@@ -587,7 +562,7 @@ class ICache(val parameter: ICacheParameter)
         )
       )
     val data: UInt =
-      Mux(s3_slaveValid, s1s3_slaveData, io.instructionFetchAXI.r.bits.data(wordBits * (i + 1) - 1, wordBits * i))
+      Mux(s3_slaveValid, s1s3_slaveData, io.instructionFetchTileLink.d.bits.data(wordBits * (i + 1) - 1, wordBits * i))
     // the way to be replaced/written
     val way = Mux(s3_slaveValid, scratchpadWay(s1s3_slaveAddr), repl_way)
     data_array.readwritePorts.foreach { dataPort =>
@@ -664,7 +639,7 @@ class ICache(val parameter: ICacheParameter)
     case 1 =>
       require(tECC.isInstanceOf[IdentityCode])
       require(dECC.isInstanceOf[IdentityCode])
-      require(parameter.itimAXIParameter.isEmpty)
+      require(parameter.itimTileLinkParameter.isEmpty)
       // reply data to CPU at stage 2. no replay.
       io.resp.bits.data := Mux1H(s1_tag_hit, s1_dout)
       io.resp.bits.ae := s1_tl_error.asUInt.orR
@@ -695,30 +670,28 @@ class ICache(val parameter: ICacheParameter)
       }
 
       // ITIM access
-      io.itimAXI.foreach { axi =>
+      io.itimTileLink.foreach { tl =>
         /** valid signal for D channel. */
         val respValid = RegInit(false.B)
         // ITIM access is unpipelined
-        axi.ar.ready := !(io.instructionFetchAXI.r.valid || s1_slaveValid || s2_slaveValid || s3_slaveValid || respValid || !io.clock_enabled)
+        tl.a.ready := !(io.instructionFetchTileLink.d.valid || s1_slaveValid || s2_slaveValid || s3_slaveValid || respValid || !io.clock_enabled)
 
         /** register used to latch TileLink request for one cycle. */
-        val s1_a = RegEnable(axi.ar.bits, s0_slaveValid)
-        val s1_aw = RegEnable(axi.aw.bits, axi.aw.fire)
-        val s1_w = RegEnable(axi.w.bits, axi.w.fire)
+        val s1_a = RegEnable(tl.a.bits, s0_slaveValid)
         // Write Data(Put / PutPartial all mask is 1)
-        s1s2_full_word_write := axi.w.bits.strb.andR
+        s1s2_full_word_write := tl.a.bits.mask.andR
         // (de)allocate ITIM
-        when(axi.w.fire) {
+        when(tl.a.fire && tl.a.bits.opcode === OpCode.PutFullData) {
           // address
-          s1s3_slaveAddr := s1_aw.addr
+          s1s3_slaveAddr := s1_a.address
           // store Put/PutP data
-          s1s3_slaveData := axi.w.bits.data
+          s1s3_slaveData := tl.a.bits.data
           // S0
           // access data in 0 -> way - 2 allocate and enable, access data in way - 1(last way), deallocate.
-          val enable = scratchpadWayValid(scratchpadWay(s1_aw.addr))
+          val enable = scratchpadWayValid(scratchpadWay(s1_a.address))
           // The address isn't in range,
-          when(!lineInScratchpad(scratchpadLine(s1_aw.addr))) {
-            scratchpadMax.get := scratchpadLine(s1_aw.addr)
+          when(!lineInScratchpad(scratchpadLine(s1_a.address))) {
+            scratchpadMax.get := scratchpadLine(s1_a.address)
             invalidate := true.B
           }
           scratchpadOn := enable
@@ -736,7 +709,7 @@ class ICache(val parameter: ICacheParameter)
 
         assert(!s2_valid || RegNext(RegNext(s0_vaddr)) === io.s2_vaddr)
         when(
-          !(axi.w.valid || s1_slaveValid || s2_slaveValid || respValid)
+          !(s1_slaveValid || s2_slaveValid || respValid)
             && s2_valid && s2_data_decoded.error && !s2_tag_disparity
         ) {
           // handle correctable errors on CPU accesses to the scratchpad.
@@ -750,7 +723,7 @@ class ICache(val parameter: ICacheParameter)
 
         // back pressure is allowed on the [[tl]]
         // pull up [[respValid]] when [[s2_slaveValid]] until [[tl.d.fire]]
-        respValid := s2_slaveValid || (respValid && !axi.r.ready)
+        respValid := s2_slaveValid || (respValid && !tl.d.ready)
         // if [[s2_full_word_write]] will overwrite data, and [[s2_data_decoded.uncorrectable]] can be ignored.
         val respError =
           RegEnable(s2_scratchpad_hit && s2_data_decoded.uncorrectable && !s1s2_full_word_write, s2_slaveValid)
@@ -762,7 +735,7 @@ class ICache(val parameter: ICacheParameter)
           /** data not masked by the TileLink PutData/PutPartialData. means data is stored at [[s1s3_slaveData]] which
             * was read at stage 1.
             */
-          def byteEn(i: Int) = !axi.w.bits.strb(i)
+          def byteEn(i: Int) = !s1_a.mask(i)
           // write [[s1s3_slaveData]] based on index of wordBits.
           // @todo seems a problem here?
           //       granularity of CPU fetch is `wordBits/8`,
@@ -775,19 +748,24 @@ class ICache(val parameter: ICacheParameter)
           ).asUInt
         }
 
-        axi.r.valid := respValid
-        //        tl.d.bits := Mux(
-        //          edge_in.get.hasData(s1_a),
-        //          // PutData/PutPartialData -> AccessAck
-        //          edge_in.get.AccessAck(s1_a),
-        //          // Get -> AccessAckData
-        //          edge_in.get.AccessAck(s1_a, 0.U, denied = false.B, corrupt = respError)
-        //        )
-        axi.r.bits := DontCare
-        axi.r.bits.data := s1s3_slaveData
-        axi.r.bits.last := true.B
+        tl.d.valid := respValid
+        tl.d.bits := DontCare
+        tl.d.bits.opcode := Mux(
+          s1_a.opcode === OpCode.Get,
+          OpCode.AccessAckData,
+          OpCode.AccessAck
+        )
+        tl.d.bits.param := Param.tieZero
+        tl.d.bits.size := s1_a.size
+        tl.d.bits.source := s1_a.source
+        tl.d.bits.sink := 0.U
+        tl.d.bits.denied := false.B
+        tl.d.bits.data := s1s3_slaveData
+        tl.d.bits.corrupt := false.B
         // Tie off unused channels
-        axi.b.valid := false.B
+        tl.b.ready := true.B
+        tl.c.valid := false.B
+        tl.e.valid := false.B
 
         //        ccover(s0_valid && s1_slaveValid, "CONCURRENT_ITIM_ACCESS_1", "ITIM accessed, then I$ accessed next cycle")
         //        ccover(
@@ -800,14 +778,17 @@ class ICache(val parameter: ICacheParameter)
       }
   }
 
-  arQueue.enq.valid := s2_request_refill
-  arQueue.enq.bits := DontCare
-  arQueue.enq.bits.id := 0.U
-  arQueue.enq.bits.addr := (refill_paddr >> blockOffBits) << blockOffBits
-  arQueue.enq.bits.size := log2Up(parameter.instructionFetchParameter.dataWidth / 8).U
-  arQueue.enq.bits.len := (parameter.blockBytes * 8 / parameter.instructionFetchParameter.dataWidth - 1).U
-  arQueue.enq.bits.burst := 1.U
-  io.instructionFetchAXI.ar <> arQueue.deq
+  tlQueue.enq.valid := s2_request_refill
+  tlQueue.enq.bits := DontCare
+  tlQueue.enq.bits.opcode := OpCode.Get
+  tlQueue.enq.bits.param := Param.tieZero
+  tlQueue.enq.bits.size := log2Up(parameter.instructionFetchParameter.dataWidth / 8).U
+  tlQueue.enq.bits.source := 0.U
+  tlQueue.enq.bits.address := (refill_paddr >> blockOffBits) << blockOffBits
+  tlQueue.enq.bits.mask := Fill(parameter.instructionFetchParameter.dataWidth / 8, true.B)
+  tlQueue.enq.bits.data := 0.U
+  tlQueue.enq.bits.corrupt := false.B
+  io.instructionFetchTileLink.a <> tlQueue.deq
 
   // prefetch when next-line access does not cross a page
   if (cacheParams.prefetch) {
@@ -860,10 +841,9 @@ class ICache(val parameter: ICacheParameter)
     //    )
     //    ccover(tl_out.a.fire && hint_outstanding, "PREFETCH_D_AFTER_MISS_A", "I$ prefetch resolves after second miss")
   }
-  // Drive APROT information
-  // bufferable ## modifiable ## readalloc ## writealloc ## privileged ## secure ## fetch
-  arQueue.enq.bits.user := true.B ## true.B ## io.s2_cacheable ## io.s2_cacheable ##
-    true.B ## true.B ## true.B
+  // Drive TileLink user information
+  // For now, we don't use user bits in TileLink
+  // tlQueue.enq.bits.user := None
   // tl_out.a.bits.user.lift(AMBAProt).foreach { x =>
   //   // Rocket caches all fetch requests, and it's difficult to differentiate privileged/unprivileged on
   //   // cached data, so mark as privileged
@@ -878,7 +858,7 @@ class ICache(val parameter: ICacheParameter)
   // tl_out.b.ready := true.B
   // tl_out.c.valid := false.B
   // tl_out.e.valid := false.B
-  assert(!(arQueue.enq.valid && addrMaybeInScratchpad(arQueue.enq.bits.addr)))
+  assert(!(tlQueue.enq.valid && addrMaybeInScratchpad(tlQueue.enq.bits.address)))
 
   // if there is an outstanding refill, cannot flush I$.
   when(!refill_valid) { invalidated := false.B }
@@ -888,10 +868,9 @@ class ICache(val parameter: ICacheParameter)
   io.perf.acquire := refill_fire
   // don't gate I$ clock since there are outstanding transcations.
   io.keep_clock_enabled :=
-    io.itimAXI
-      .map(axi =>
-        axi.ar.valid || axi.aw.valid || axi.w.valid // tl.a.valid
-          || axi.r.valid // tl.d.valid
+    io.itimTileLink
+      .map(tl =>
+        tl.a.valid || tl.d.valid // tl.a.valid and tl.d.valid
           || s1_slaveValid || s2_slaveValid || s3_slaveValid
       )
       .getOrElse(false.B) || // ITIM

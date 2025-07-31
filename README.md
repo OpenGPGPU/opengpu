@@ -3,7 +3,7 @@
 The goal of this project is to develop a simple GPU.
 
 ## Project Description
-A project to create a simplified GPU implementation with chisel.
+A project to create a simplified GPU implementation with chisel, featuring TileLink-based memory interfaces for better cache coherence support.
 
 ```mermaid
 %%{
@@ -182,6 +182,7 @@ flowchart TB
 - Core Architecture : The project is building a GPU core based on the RISC-V Vector (RVV) extension. It includes fundamental execution units like Instruction Issue (Issue Stage), ALU, and FPU, along with parameter configurations for the Vector Register File (VRF) and VectorCore.
 - Instruction Set Support : Currently focuses on the RISC-V Vector (RVV) extension instructions.
 - Modular Design : The code structure demonstrates a modular approach with subdirectories such as core , dispatcher , fpu , and vector .
+- Memory Interface : Successfully migrated from AXI4 to TileLink protocol for better cache coherence support. Both ICache and GPUCache now use TileLink interfaces.
 
 ### Future Work
 To achieve a complete GPU functionality, beyond the existing foundation, the following aspects typically need to be considered and developed:
@@ -198,12 +199,19 @@ To achieve a complete GPU functionality, beyond the existing foundation, the fol
 4. Memory Hierarchy :
    - Multi-level Caches : In addition to VRF, implementing L1/L2 caches and shared memory is crucial for optimizing data access performance.
    - Video Memory Controller : Interface and management for external DRAM (video memory).
+   - TileLink Interconnect : Enhanced cache coherence support using TileLink protocol for better memory system integration.
 5. Scheduling and Control Logic :
    - Warp/Thread Block Scheduling : More sophisticated schedulers to efficiently manage and dispatch a large number of warps/thread blocks, maximizing hardware utilization.
    - Context Switching : Efficiently switching between different tasks.
 6. Bus and Interconnect : Internal data paths and interfaces with external systems (e.g., CPU).
 7. Drivers and Software Stack : While this is a hardware project, a complete GPU ecosystem requires corresponding drivers and high-level APIs (e.g., OpenGL, Vulkan, DirectX, OpenCL, CUDA) to allow software developers to leverage the hardware capabilities.
 8. Power and Performance Optimization : Clock gating, power management, and pipeline optimization should be considered during the RTL design phase to achieve target power and performance goals.
+
+## Documentation
+
+For detailed information about the TileLink integration, see:
+- [TileLink Integration Guide](TILELINK_INTEGRATION.md)
+- [TileLink Migration Summary](TILELINK_MIGRATION_SUMMARY.md)
 
 ## License
 MIT License

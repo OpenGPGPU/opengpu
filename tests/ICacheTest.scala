@@ -43,17 +43,17 @@ class ICacheTest extends AnyFlatSpec {
 
       // First access should miss
       dut.io.clock.step(5)
-      dut.io.instructionFetchAXI.ar.valid.expect(true.B)
-      dut.io.instructionFetchAXI.ar.bits.addr.expect(0x1000.U)
+      dut.io.instructionFetchTileLink.a.valid.expect(true.B)
+      dut.io.instructionFetchTileLink.a.bits.address.expect(0x1000.U)
       dut.io.clock.step(5)
-      dut.io.instructionFetchAXI.ar.ready.poke(true.B)
+      dut.io.instructionFetchTileLink.a.ready.poke(true.B)
 
       // Provide refill data
-      dut.io.instructionFetchAXI.r.valid.poke(true.B)
-      dut.io.instructionFetchAXI.r.bits.data.poke("h_dead_beef".U)
-      dut.io.instructionFetchAXI.r.bits.last.poke(true.B)
+      dut.io.instructionFetchTileLink.d.valid.poke(true.B)
+      dut.io.instructionFetchTileLink.d.bits.data.poke("h_dead_beef".U)
+      dut.io.instructionFetchTileLink.d.bits.opcode.poke(1.U) // AccessAckData
       dut.io.clock.step()
-      dut.io.instructionFetchAXI.r.valid.poke(false.B)
+      dut.io.instructionFetchTileLink.d.valid.poke(false.B)
 
       // Second access should hit
       dut.io.req.valid.poke(true.B)
@@ -70,7 +70,7 @@ class ICacheTest extends AnyFlatSpec {
       dut.io.req.valid.poke(true.B)
       dut.io.req.bits.addr.poke(0x1000.U)
       dut.io.clock.step()
-      dut.io.instructionFetchAXI.ar.valid.expect(true.B)
+      dut.io.instructionFetchTileLink.a.valid.expect(true.B)
     }
   }
 }

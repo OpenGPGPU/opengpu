@@ -90,9 +90,10 @@ trait OGPUModule extends ScalaModule with HasChisel with HasRVDecoderDB {
   def hardfloatModule:  ScalaModule
   def axi4Module:       ScalaModule
   def stdlibModule:     ScalaModule
+  def tilelinkModule:   ScalaModule
   def T1Module:         ScalaModule
   def RocketvModule:    ScalaModule
   def fpuModule:        ScalaModule
 
-  def moduleDeps = super.moduleDeps ++ Seq(arithmeticModule, hardfloatModule, axi4Module, stdlibModule, T1Module, RocketvModule, fpuModule)
+  def moduleDeps = super.moduleDeps ++ Seq(arithmeticModule, hardfloatModule, axi4Module, stdlibModule, tilelinkModule, T1Module, RocketvModule, fpuModule)
 }
