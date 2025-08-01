@@ -182,7 +182,7 @@ flowchart TB
 - Core Architecture : The project is building a GPU core based on the RISC-V Vector (RVV) extension. It includes fundamental execution units like Instruction Issue (Issue Stage), ALU, and FPU, along with parameter configurations for the Vector Register File (VRF) and VectorCore.
 - Instruction Set Support : Currently focuses on the RISC-V Vector (RVV) extension instructions.
 - Modular Design : The code structure demonstrates a modular approach with subdirectories such as core , dispatcher , fpu , and vector .
-- Memory Interface : Successfully migrated from AXI4 to TileLink protocol for better cache coherence support. Both ICache and GPUCache now use TileLink interfaces.
+- Memory Interface : Successfully migrated from AXI4 to TileLink protocol for better cache coherence support. Both ICache and DCache now use TileLink interfaces.
 
 ### Future Work
 To achieve a complete GPU functionality, beyond the existing foundation, the following aspects typically need to be considered and developed:
@@ -209,12 +209,11 @@ To achieve a complete GPU functionality, beyond the existing foundation, the fol
 
 ## Documentation
 
-For detailed information about the TileLink integration, see:
-- [TileLink Integration Guide](TILELINK_INTEGRATION.md)
-- [TileLink Migration Summary](TILELINK_MIGRATION_SUMMARY.md)
+For detailed information about OPENGPU, see the documentation in the `docs/` directory:
+
+- **[Architecture Guide](docs/ARCHITECTURE.md)** - System architecture and component overview
+- **[TileLink Integration Guide](docs/TILELINK_INTEGRATION.md)** - TileLink protocol implementation details
+- **[Development Guide](docs/DEVELOPMENT_GUIDE.md)** - Setup, building, testing, and development workflow
 
 ## License
 MIT License
-
-
-

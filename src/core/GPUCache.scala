@@ -8,7 +8,7 @@ import org.chipsalliance.tilelink.bundle._
 
 /** GPU Cache parameter case class, similar to ICacheParameter. Contains all configuration for the cache structure.
   */
-case class GPUCacheParameter(
+case class DCacheParameter(
   useAsyncReset: Boolean = false, // Whether to use async reset
   nSets:         Int, // Number of sets
   nWays:         Int, // Number of ways (associativity)
@@ -26,14 +26,14 @@ case class GPUCacheParameter(
   val pageOffsetBits = log2Ceil(pageBytes)
 }
 
-object GPUCacheParameter {
-  implicit def rwP: upickle.default.ReadWriter[GPUCacheParameter] = upickle.default.macroRW[GPUCacheParameter]
+object DCacheParameter {
+  implicit def rwP: upickle.default.ReadWriter[DCacheParameter] = upickle.default.macroRW[DCacheParameter]
 }
 
 /** GPU Cache request bundle (from core to cache) vaddr: virtual address cmd: 0 = load, 1 = store size: access size
   * (log2) data: store data
   */
-class GPUCacheReq(parameter: GPUCacheParameter) extends Bundle {
+class DCacheReq(parameter: DCacheParameter) extends Bundle {
   val vaddr = UInt(parameter.vaddrBits.W)
   val cmd = UInt(2.W)
   val size = UInt(3.W)
@@ -42,7 +42,7 @@ class GPUCacheReq(parameter: GPUCacheParameter) extends Bundle {
 
 /** GPU Cache response bundle (from cache to core) vaddr: virtual address data: load data exception: miss or error
   */
-class GPUCacheResp(parameter: GPUCacheParameter) extends Bundle {
+class DCacheResp(parameter: DCacheParameter) extends Bundle {
   val vaddr = UInt(parameter.vaddrBits.W)
   val data = UInt(parameter.dataWidth.W)
   val exception = Bool()
@@ -78,7 +78,7 @@ class PTWMemoryResp(paddrBits: Int, dataWidth: Int) extends Bundle {
 
 /** Memory interface for GPU cache using TileLink
   */
-class GPUMemoryIO(parameter: GPUCacheParameter) extends Bundle {
+class DMemoryIO(parameter: DCacheParameter) extends Bundle {
   val tilelink = new TLLink(
     TLLinkParameter(
       addressWidth = parameter.paddrBits,
@@ -93,13 +93,13 @@ class GPUMemoryIO(parameter: GPUCacheParameter) extends Bundle {
 
 /** GPU Cache top-level interface (IO bundle) Includes request/response, PTW, and memory interface
   */
-class GPUCacheInterface(parameter: GPUCacheParameter) extends Bundle {
+class DCacheInterface(parameter: DCacheParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
-  val req = Flipped(Decoupled(new GPUCacheReq(parameter)))
-  val resp = Decoupled(new GPUCacheResp(parameter))
+  val req = Flipped(Decoupled(new DCacheReq(parameter)))
+  val resp = Decoupled(new DCacheResp(parameter))
   val ptw = new GPUTLBPTWIO(parameter.vaddrBits - parameter.pageOffsetBits, parameter.paddrBits)
-  val memory = new GPUMemoryIO(parameter)
+  val memory = new DMemoryIO(parameter)
   val ptwMem = Flipped(Decoupled(new PTWMemoryReq(parameter.paddrBits, parameter.dataWidth)))
   val ptwMemResp = Decoupled(new PTWMemoryResp(parameter.paddrBits, parameter.dataWidth))
 }
@@ -107,7 +107,7 @@ class GPUCacheInterface(parameter: GPUCacheParameter) extends Bundle {
 /** MSHR entry for miss tracking and merge waiting: which slots are waiting for this miss waitingData: data for each
   * waiting slot
   */
-class GPUMSHREntry(parameter: GPUCacheParameter) extends Bundle {
+class DMSHREntry(parameter: DCacheParameter) extends Bundle {
   val valid = Bool()
   val vaddr = UInt(parameter.vaddrBits.W)
   val paddr = UInt(parameter.paddrBits.W)
@@ -119,9 +119,9 @@ class GPUMSHREntry(parameter: GPUCacheParameter) extends Bundle {
 
 /** Simple fully-associative TLB for address translation Handles TLB miss by requesting PTW
   */
-class GPUTLB(parameter: GPUCacheParameter) extends Module {
+class DTLB(parameter: DCacheParameter) extends Module {
   val io = IO(new Bundle {
-    val req = Flipped(Decoupled(new GPUCacheReq(parameter)))
+    val req = Flipped(Decoupled(new DCacheReq(parameter)))
     val resp = Decoupled(new Bundle {
       val paddr = UInt(parameter.paddrBits.W)
       val miss = Bool()
@@ -139,7 +139,7 @@ class GPUTLB(parameter: GPUCacheParameter) extends Module {
   // 状态机
   val s_idle :: s_wait_ptw :: s_respond :: Nil = Enum(3)
   val state = RegInit(s_idle)
-  val savedReq = Reg(new GPUCacheReq(parameter))
+  val savedReq = Reg(new DCacheReq(parameter))
   val savedVpn = Reg(UInt(vpnBits.W))
 
   // PTW请求
@@ -223,9 +223,9 @@ class GPUTLB(parameter: GPUCacheParameter) extends Module {
   * matches ICache
   */
 @instantiable
-class GPUCache(val parameter: GPUCacheParameter)
-    extends FixedIORawModule(new GPUCacheInterface(parameter))
-    with SerializableModule[GPUCacheParameter]
+class DCache(val parameter: DCacheParameter)
+    extends FixedIORawModule(new DCacheInterface(parameter))
+    with SerializableModule[DCacheParameter]
     with Public
     with ImplicitClock
     with ImplicitReset {
@@ -233,18 +233,18 @@ class GPUCache(val parameter: GPUCacheParameter)
   override protected def implicitReset: Reset = io.reset
 
   // TLB instance for address translation
-  val tlb = Module(new GPUTLB(parameter))
+  val tlb = Module(new DTLB(parameter))
   // MSHR array for miss tracking and merge
-  val mshrs = RegInit(VecInit(Seq.fill(parameter.nMSHRs)(0.U.asTypeOf(new GPUMSHREntry(parameter)))))
+  val mshrs = RegInit(VecInit(Seq.fill(parameter.nMSHRs)(0.U.asTypeOf(new DMSHREntry(parameter)))))
   val mshrValid = RegInit(VecInit(Seq.fill(parameter.nMSHRs)(false.B)))
   // 1. 定义waiting请求Bundle
-  class MSHRWaitingReq(parameter: GPUCacheParameter) extends Bundle {
+  class MSHRWaitingReq(parameter: DCacheParameter) extends Bundle {
     val vaddr = UInt(parameter.vaddrBits.W)
     val cmd = UInt(2.W)
     val size = UInt(3.W)
     val data = UInt(parameter.dataWidth.W)
   }
-  // 2. 在GPUCache类中实例化SimpleFIFOQueue（先生成模块，再把io放到Vec里，支持UInt索引且所有端口都被驱动）
+  // 2. 在DCache类中实例化SimpleFIFOQueue（先生成模块，再把io放到Vec里，支持UInt索引且所有端口都被驱动）
   val mshrWaitingQueuesSeq = Seq.tabulate(parameter.nMSHRs) { i =>
     Module(new SimpleFIFOQueue(new MSHRWaitingReq(parameter), 4)).io
   }
@@ -257,7 +257,7 @@ class GPUCache(val parameter: GPUCacheParameter)
   }
 
   // 请求队列，用于处理资源不足的情况
-  val reqQueue = Reg(Vec(8, new GPUCacheReq(parameter))) // 8个深度的请求队列
+  val reqQueue = Reg(Vec(8, new DCacheReq(parameter))) // 8个深度的请求队列
   val reqQueueValid = RegInit(VecInit(Seq.fill(8)(false.B)))
   val reqQueueHead = RegInit(0.U(3.W))
   val reqQueueTail = RegInit(0.U(3.W))

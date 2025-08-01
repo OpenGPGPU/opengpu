@@ -2,34 +2,34 @@ import chisel3._
 import chisel3.util._
 import chisel3.simulator.VCDHackedEphemeralSimulator._
 import org.scalatest.flatspec.AnyFlatSpec
-import ogpu.core.{GPUCache, GPUCacheParameter, PTW, PTWParameter}
+import ogpu.core.{DCache, DCacheParameter, PTW, PTWParameter}
 import org.chipsalliance.tilelink.bundle._
 
 import ogpu.core._
 
-/** Top-level module containing both PTW and GPUCache for testing */
-class PTWGPUCacheTop(ptwParams: PTWParameter, cacheParams: GPUCacheParameter) extends Module {
+/** Top-level module containing both PTW and DCache for testing */
+class PTWDCacheTop(ptwParams: PTWParameter, cacheParams: DCacheParameter) extends Module {
   val io = IO(new Bundle {
     // PTW interface without clock/reset
     val ptw_tlb_req = Flipped(Decoupled(Valid(new PTWReq(ptwParams.vpnBits))))
     val ptw_tlb_resp = Valid(new PTWResp(ptwParams.vaddrBits, ptwParams.pgLevels))
     val ptw_tlb_ptbr = Input(new PTBR(ptwParams.xLen, ptwParams.maxPAddrBits, ptwParams.pgIdxBits))
-    // 移除PTW的mem接口，因为PTW只通过GPUCache访存
+    // 移除PTW的mem接口，因为PTW只通过DCache访存
     // val ptw_mem = Decoupled(new PTWMemoryReq(ptwParams.paddrBits, ptwParams.xLen))
     // val ptw_memResp = Flipped(Decoupled(new PTWMemoryResp(ptwParams.paddrBits, ptwParams.xLen)))
 
     // Cache interface without clock/reset
-    val cache_req = Flipped(Decoupled(new GPUCacheReq(cacheParams)))
-    val cache_resp = Decoupled(new GPUCacheResp(cacheParams))
+    val cache_req = Flipped(Decoupled(new DCacheReq(cacheParams)))
+    val cache_resp = Decoupled(new DCacheResp(cacheParams))
     val cache_ptw = new GPUTLBPTWIO(cacheParams.vaddrBits - cacheParams.pageOffsetBits, cacheParams.paddrBits)
-    val cache_memory = new GPUMemoryIO(cacheParams)
+    val cache_memory = new DMemoryIO(cacheParams)
     // 移除cache的ptwMem接口，因为这是内部连接
     // val cache_ptwMem = Flipped(Decoupled(new PTWMemoryReq(cacheParams.paddrBits, cacheParams.dataWidth)))
     // val cache_ptwMemResp = Decoupled(new PTWMemoryResp(cacheParams.paddrBits, cacheParams.dataWidth))
   })
 
   val ptw = Module(new PTW(ptwParams))
-  val cache = Module(new GPUCache(cacheParams))
+  val cache = Module(new DCache(cacheParams))
 
   // 关键连接：将顶层隐式时钟/复位传递给底层
   ptw.io.clock := clock // 连接隐式时钟到显式端口
@@ -37,7 +37,7 @@ class PTWGPUCacheTop(ptwParams: PTWParameter, cacheParams: GPUCacheParameter) ex
   cache.io.clock := clock // 连接隐式时钟到显式端口
   cache.io.reset := reset // 连接隐式复位到显式端口
 
-  // Connect PTW to cache - PTW访存请求发送给GPUCache
+  // Connect PTW to cache - PTW访存请求发送给DCache
   cache.io.ptwMem <> ptw.io.mem
   cache.io.ptwMemResp <> ptw.io.memResp
 
@@ -45,7 +45,7 @@ class PTWGPUCacheTop(ptwParams: PTWParameter, cacheParams: GPUCacheParameter) ex
   io.ptw_tlb_req <> ptw.io.tlb.req
   io.ptw_tlb_resp <> ptw.io.tlb.resp
   ptw.io.tlb.ptbr <> io.ptw_tlb_ptbr
-  // 移除PTW的mem接口，因为PTW只通过GPUCache访存
+  // 移除PTW的mem接口，因为PTW只通过DCache访存
   // io.ptw_mem <> ptw.io.mem
   // io.ptw_memResp <> ptw.io.memResp
 
@@ -58,9 +58,9 @@ class PTWGPUCacheTop(ptwParams: PTWParameter, cacheParams: GPUCacheParameter) ex
   // io.cache_ptwMemResp <> cache.io.ptwMemResp
 }
 
-class PTWGPUCacheTest extends AnyFlatSpec {
+class PTWDCacheTest extends AnyFlatSpec {
 
-  behavior.of("PTW through GPUCache")
+  behavior.of("PTW through DCache")
 
   it should "handle page table walk" in {
     val ptwParams = PTWParameter(
@@ -77,7 +77,7 @@ class PTWGPUCacheTest extends AnyFlatSpec {
       isITLB = true
     )
 
-    val cacheParams = GPUCacheParameter(
+    val cacheParams = DCacheParameter(
       useAsyncReset = false,
       nSets = 64,
       nWays = 4,
@@ -90,7 +90,7 @@ class PTWGPUCacheTest extends AnyFlatSpec {
       pageBytes = 4096
     )
 
-    simulate(new PTWGPUCacheTop(ptwParams, cacheParams), "ptw_cache_basic") { dut =>
+    simulate(new PTWDCacheTop(ptwParams, cacheParams), "ptw_cache_basic") { dut =>
       // Initialize
       dut.clock.step()
       dut.reset.poke(true.B)
@@ -173,7 +173,7 @@ class PTWGPUCacheTest extends AnyFlatSpec {
       isITLB = true
     )
 
-    val cacheParams = GPUCacheParameter(
+    val cacheParams = DCacheParameter(
       useAsyncReset = false,
       nSets = 64,
       nWays = 4,
@@ -186,7 +186,7 @@ class PTWGPUCacheTest extends AnyFlatSpec {
       pageBytes = 4096
     )
 
-    simulate(new PTWGPUCacheTop(ptwParams, cacheParams), "ptw_cache_error") { dut =>
+    simulate(new PTWDCacheTop(ptwParams, cacheParams), "ptw_cache_error") { dut =>
       // Initialize
       dut.clock.step()
       dut.reset.poke(true.B)

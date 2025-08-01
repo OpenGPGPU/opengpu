@@ -3,8 +3,8 @@ import ogpu.core._
 import org.scalatest.flatspec.AnyFlatSpec
 import chisel3.simulator.VCDHackedEphemeralSimulator._
 
-class GPUCacheTest extends AnyFlatSpec {
-  val param = GPUCacheParameter(
+class DCacheTest extends AnyFlatSpec {
+  val param = DCacheParameter(
     useAsyncReset = false,
     nSets = 64,
     nWays = 4,
@@ -17,10 +17,10 @@ class GPUCacheTest extends AnyFlatSpec {
     pageBytes = 4096
   )
 
-  behavior.of("GPUCache")
+  behavior.of("DCache")
 
   it should "handle basic cache operations correctly" in {
-    simulate(new GPUCache(param), "gpucachetest1") { dut =>
+    simulate(new DCache(param), "dcachetest1") { dut =>
       // Initialize
       dut.io.clock.step()
       dut.io.reset.poke(true.B)
@@ -105,7 +105,7 @@ class GPUCacheTest extends AnyFlatSpec {
   }
 
   it should "handle store operations correctly" in {
-    simulate(new GPUCache(param), "gpucachetest2") { dut =>
+    simulate(new DCache(param), "dcachetest2") { dut =>
       // Initialize
       dut.io.clock.step()
       dut.io.reset.poke(true.B)
@@ -188,7 +188,7 @@ class GPUCacheTest extends AnyFlatSpec {
   }
 
   it should "handle MSHR merging correctly" in {
-    simulate(new GPUCache(param), "gpucachetest3") { dut =>
+    simulate(new DCache(param), "dcachetest3") { dut =>
       // Initialize
       dut.io.clock.step()
       dut.io.reset.poke(true.B)
@@ -268,7 +268,7 @@ class GPUCacheTest extends AnyFlatSpec {
   }
 
   it should "handle TLB misses correctly" in {
-    simulate(new GPUCache(param), "gpucachetest4") { dut =>
+    simulate(new DCache(param), "dcachetest4") { dut =>
       // Initialize
       dut.io.clock.step()
       dut.io.reset.poke(true.B)
@@ -317,7 +317,7 @@ class GPUCacheTest extends AnyFlatSpec {
   }
 
   it should "handle different access sizes correctly" in {
-    simulate(new GPUCache(param), "gpucachetest5") { dut =>
+    simulate(new DCache(param), "dcachetest5") { dut =>
       // Initialize
       dut.io.clock.step()
       dut.io.reset.poke(true.B)
