@@ -8,15 +8,15 @@ class FpuIssueIO(parameter: OGPUParameter) extends Bundle {
     val instruction = new InstructionBundle(parameter.warpNum, 32)
     val fpuResult = new FPUDecoderInterface(parameter)
   }))
-  val fpRegFile = Flipped(new RegFileReadIO(parameter.xLen, opNum = 3))
-  val intRegFile = Flipped(new RegFileReadIO(parameter.xLen, opNum = 1))
+  val fpRegFile = Flipped(new RegFileReadBundle(parameter.xLen, opNum = 3))
+  val intRegFile = Flipped(new RegFileReadBundle(parameter.xLen, opNum = 1))
   val fpScoreboard = Flipped(
-    new WarpScoreboardReadIO(
+    new WarpScoreboardReadBundle(
       WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4)
     )
   )
   val intScoreboard = Flipped(
-    new WarpScoreboardReadIO(
+    new WarpScoreboardReadBundle(
       WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 2)
     )
   )
@@ -95,7 +95,7 @@ class FpuIssue(val parameter: OGPUParameter) extends Module {
   val rs3Data = io.fpRegFile.readData(2) // rs3总是浮点寄存器
 
   // FPU 发射
-  io.fpuIssue.valid := canIssue
+  io.fpuIssue.valid := canIssue && io.in.valid
   io.fpuIssue.bits.rs1Data := rs1Data
   io.fpuIssue.bits.rs2Data := rs2Data
   io.fpuIssue.bits.rs3Data := rs3Data

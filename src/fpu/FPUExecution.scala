@@ -7,6 +7,11 @@ import chisel3.experimental.SerializableModule
 
 import ogpu.core._
 
+class FPUExecutionBundle(parameter: OGPUParameter) extends Bundle {
+  val in = Flipped(DecoupledIO(new FPUOperandBundle(parameter)))
+  val out = DecoupledIO(new ResultBundle(parameter))
+}
+
 class FPUExecutionInterface(parameter: OGPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())

@@ -8,6 +8,21 @@ import chisel3.util._
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.SerializableModule
 
+/** Vector ALU Execution Bundle
+  *
+  * Defines the bundle for vector arithmetic logic unit execution
+  */
+class VectorALUExecutionBundle(parameter: VectorParameter) extends Bundle {
+  // Input from Issue stage
+  val in = Flipped(DecoupledIO(new VectorALUOperandBundle(parameter)))
+
+  // Execution results output
+  val out = DecoupledIO(new VectorResultBundle(parameter))
+
+  // Vector mask for conditional execution
+  val mask = Vec(parameter.threadNum, Bool())
+}
+
 /** Vector ALU Execution Interface
   *
   * Defines the interface for vector arithmetic logic unit execution

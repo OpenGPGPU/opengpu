@@ -5,7 +5,57 @@ import chisel3.util._
 import chisel3.experimental.SerializableModule
 import chisel3.experimental.hierarchy.instantiable
 
-// Use OGPUParameter instead of WarpFrontendParameter
+class WarpFrontendBundle(parameter: OGPUParameter) extends Bundle {
+  // Interface with WarpScheduler
+  val warp_start = Flipped(DecoupledIO(new Bundle {
+    val wid = UInt(log2Ceil(parameter.warpNum).W)
+    val pc = UInt(parameter.vaddrBitsExtended.W)
+  }))
+  val reg_init_done = Input(Bool())
+
+  // Interface with Frontend using standard types
+  val frontend_req = DecoupledIO(
+    new FrontendReq(
+      parameter.warpNum,
+      parameter.vaddrBitsExtended
+    )
+  )
+  val frontend_resp = Flipped(
+    DecoupledIO(
+      new FrontendResp(
+        parameter.warpNum,
+        parameter.vaddrBits,
+        parameter.vaddrBitsExtended,
+        parameter.coreInstBits,
+        parameter.fetchWidth
+      )
+    )
+  )
+
+  // Interface with Decoder
+  val decode = DecoupledIO(
+    new InstructionBundle(
+      parameter.warpNum,
+      parameter.coreInstBits,
+      parameter.vaddrBitsExtended
+    )
+  )
+
+  // Branch resolution interface
+  val branch_update = Flipped(ValidIO(new BranchResultBundle(parameter)))
+
+  // Add warp finish signal
+  val warp_finish = Input(Valid(UInt(log2Ceil(parameter.warpNum).W)))
+
+  // New decoder control interface
+  val decode_control = Flipped(ValidIO(new Bundle {
+    val wid = UInt(log2Ceil(parameter.warpNum).W)
+    val is_branch = Bool() // Branch instruction
+    val next_pc = UInt(parameter.vaddrBitsExtended.W) // Next PC to fetch
+    val activate = Bool() // Whether to activate warp
+    val is_compressed = Bool() // Whether current instruction is compressed
+  }))
+}
 
 class WarpFrontendInterface(parameter: OGPUParameter) extends Bundle {
   val clock = Input(Clock())

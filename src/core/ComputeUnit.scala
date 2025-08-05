@@ -4,6 +4,50 @@ import chisel3._
 import chisel3.util._
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.SerializableModule
+import org.chipsalliance.tilelink.bundle._
+
+/** ComputeUnit Bundle
+  *
+  * 封装了ComputeUnit的所有信号
+  */
+class ComputeUnitBundle(parameter: OGPUParameter) extends Bundle {
+  // 任务接口
+  val task = Flipped(
+    DecoupledIO(
+      new CuTaskBundle(
+        threadNum = 32,
+        warpNum = parameter.warpNum,
+        dimNum = 4,
+        xLen = parameter.xLen
+      )
+    )
+  )
+
+  // 内存接口
+  val memory = new TLLink(
+    TLLinkParameter(
+      addressWidth = 34,
+      sourceWidth = 8,
+      sinkWidth = 8,
+      dataWidth = 64,
+      sizeWidth = 4,
+      hasBCEChannels = false
+    )
+  )
+
+  // 状态和控制信号
+  val busy = Output(Bool())
+  val idle = Output(Bool())
+  val exception = Output(Bool())
+
+  // 调试和监控
+  val debug = Output(new Bundle {
+    val frontendBusy = Bool()
+    val executionBusy = Bool()
+    val dataManagerBusy = Bool()
+    val activeWarps = UInt(parameter.warpNum.W)
+  })
+}
 
 /** ComputeUnit接口
   *
@@ -26,24 +70,16 @@ class ComputeUnitInterface(parameter: OGPUParameter) extends Bundle {
   )
 
   // 内存接口
-  val memory = new Bundle {
-    val tilelink = new Bundle {
-      val a = DecoupledIO(new Bundle {
-        val address = UInt(34.W)
-        val source = UInt(8.W)
-        val sink = UInt(8.W)
-        val data = UInt(64.W)
-        val size = UInt(4.W)
-      })
-      val d = Flipped(DecoupledIO(new Bundle {
-        val address = UInt(34.W)
-        val source = UInt(8.W)
-        val sink = UInt(8.W)
-        val data = UInt(64.W)
-        val size = UInt(4.W)
-      }))
-    }
-  }
+  val memory = new TLLink(
+    TLLinkParameter(
+      addressWidth = 34,
+      sourceWidth = 8,
+      sinkWidth = 8,
+      dataWidth = 64,
+      sizeWidth = 4,
+      hasBCEChannels = false
+    )
+  )
 
   // 状态和控制信号
   val busy = Output(Bool())
@@ -104,15 +140,24 @@ class ComputeUnit(val parameter: OGPUParameter)
   // 连接任务到前端流水线
   frontendPipeline.io.warp.start <> io.task
 
+  // 连接前端流水线的warp_finish和warp_regInitDone信号
+  frontendPipeline.io.warp.finish.valid := false.B
+  frontendPipeline.io.warp.finish.bits := 0.U
+  frontendPipeline.io.warp.regInitDone := false.B
+
   // ===== 内存接口连接 =====
 
   // 连接内存接口到前端流水线
-  frontendPipeline.io.memory <> io.memory
+  frontendPipeline.io.memory.a <> io.memory.a
+  frontendPipeline.io.memory.d <> io.memory.d
 
   // ===== 指令流水线连接 =====
 
   // 连接前端到执行流水线
   executionPipeline.io.instruction <> frontendPipeline.io.instruction
+
+  // 连接执行流水线的result_ready信号
+  executionPipeline.io.result.ready := true.B
 
   // ===== 数据管理连接 =====
 

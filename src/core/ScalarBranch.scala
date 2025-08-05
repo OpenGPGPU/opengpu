@@ -15,7 +15,7 @@ class ScalarBranchInterface(parameter: OGPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
   val branchInfo = Flipped(DecoupledIO(new BranchInfoBundle(parameter)))
-  val branchResult = DecoupledIO(new BranchResultBundle(parameter))
+  val branchResult = Valid(new BranchResultBundle(parameter))
 }
 
 @instantiable
@@ -44,7 +44,7 @@ class ScalarBranch(val parameter: OGPUParameter)
     val target = op1 + op2
 
     io.branchResult.valid := true.B
-    io.branchInfo.ready := io.branchResult.ready
+    io.branchInfo.ready := true.B
     io.branchResult.bits.wid := io.branchInfo.bits.warpID
     io.branchResult.bits.pc := io.branchInfo.bits.pc
     io.branchResult.bits.target := target

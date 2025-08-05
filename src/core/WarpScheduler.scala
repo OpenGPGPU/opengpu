@@ -48,6 +48,12 @@ case class WarpParameter(
 
 }
 
+class WarpBundle(parameter: WarpParameter) extends Bundle {
+  val warp_cmd = Flipped(
+    DecoupledIO(new CuTaskBundle(parameter.threadNum, parameter.warpNum, parameter.dimNum, parameter.xLen))
+  )
+}
+
 class WarpInterface(parameter: WarpParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())

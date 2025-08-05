@@ -9,9 +9,9 @@ class AluIssueIO(parameter: OGPUParameter) extends Bundle {
     val coreResult = new CoreDecoderInterface(parameter)
     val rvc = Bool()
   }))
-  val intRegFile = Flipped(new RegFileReadIO(parameter.xLen, opNum = 2))
+  val intRegFile = Flipped(new RegFileReadBundle(parameter.xLen, opNum = 2))
   val intScoreboard = Flipped(
-    new WarpScoreboardReadIO(
+    new WarpScoreboardReadBundle(
       WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 3)
     )
   )
@@ -94,7 +94,7 @@ class AluIssue(val parameter: OGPUParameter) extends Module {
   }
 
   // ALU 发射
-  io.aluIssue.valid := canIssue
+  io.aluIssue.valid := canIssue && io.in.valid
   io.aluIssue.bits.warpID := io.in.bits.instruction.wid
   io.aluIssue.bits.execType := decode(parameter.execType)
   io.aluIssue.bits.aluFn := decode(parameter.aluFn)

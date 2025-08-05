@@ -103,17 +103,6 @@ case class FrontendParameter(
       hasBCEChannels = false
     )
 
-  def icacheParameter: ICacheParameter = ICacheParameter(
-    useAsyncReset = useAsyncReset,
-    prefetch = iCachePrefetch,
-    nSets = iCacheNSets,
-    nWays = iCacheNWays,
-    blockBytes = blockBytes,
-    usingVM = usingVM,
-    vaddrBits = vaddrBits,
-    paddrBits = paddrBits
-  )
-
   def tlbParameter: TLBParameter = TLBParameter(
     useAsyncReset = useAsyncReset,
     xLen = xLen,
@@ -132,7 +121,17 @@ case class FrontendParameter(
     isITLB = true
   )
 
-  // entry = 5
+  def icacheParameter: ICacheParameter = ICacheParameter(
+    useAsyncReset = useAsyncReset,
+    prefetch = iCachePrefetch,
+    nSets = iCacheNSets,
+    nWays = iCacheNWays,
+    blockBytes = blockBytes,
+    usingVM = usingVM,
+    vaddrBits = vaddrBits,
+    paddrBits = paddrBits
+  )
+
   def fetchQueueParameter: FetchQueueParameter = FetchQueueParameter(
     // static to be false.
     useAsyncReset = false,
@@ -143,6 +142,30 @@ case class FrontendParameter(
     coreInstBits = coreInstBits,
     fetchWidth = fetchWidth
   )
+}
+
+class FrontendModuleBundle(parameter: FrontendParameter) extends Bundle {
+  val resetVector = Const(UInt(parameter.resetVectorBits.W))
+  val nonDiplomatic = new FrontendBundle(
+    parameter.warpNum,
+    parameter.vaddrBitsExtended,
+    parameter.vaddrBits,
+    parameter.asidBits,
+    parameter.coreInstBits,
+    parameter.vpnBits,
+    parameter.paddrBits,
+    parameter.pgLevels,
+    parameter.xLen,
+    parameter.maxPAddrBits,
+    parameter.pgIdxBits,
+    parameter.hasCorrectable,
+    parameter.hasUncorrectable,
+    parameter.fetchWidth
+  )
+  val instructionFetchTileLink: org.chipsalliance.tilelink.bundle.TLLink =
+    new org.chipsalliance.tilelink.bundle.TLLink(parameter.instructionFetchParameter)
+  val itimTileLink: Option[org.chipsalliance.tilelink.bundle.TLLink] =
+    parameter.itimParameter.map(p => Flipped(new org.chipsalliance.tilelink.bundle.TLLink(p)))
 }
 
 class FrontendInterface(parameter: FrontendParameter) extends Bundle {

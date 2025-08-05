@@ -11,6 +11,12 @@ case class DispatcherParameter(
   bufferNum:     Int)
     extends SerializableModuleParameter
 
+class DispatcherBundle(parameter: DispatcherParameter) extends Bundle {
+  val queue = Flipped(DecoupledIO(new QueueBundle))
+  val task = DecoupledIO(new WorkGroupTaskBundle)
+  val task_resp = Flipped(DecoupledIO(new WorkGroupTaskRespBundle))
+}
+
 class DispatcherInterface(parameter: DispatcherParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())

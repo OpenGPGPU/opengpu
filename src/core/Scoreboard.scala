@@ -87,6 +87,18 @@ class WarpScoreboardInterface(val parameter: WarpScoreboardParameter) extends Bu
   val read = new WarpScoreboardReadIO(parameter)
 }
 
+class WarpScoreboardReadBundle(val parameter: WarpScoreboardParameter) extends Bundle {
+  val warpID = Input(UInt(log2Ceil(parameter.warpNum).W))
+  val addr = Vec(parameter.opNum, Input(UInt(5.W)))
+  val busy = Output(Vec(parameter.opNum, Bool()))
+}
+
+class WarpScoreboardReadInterface(val parameter: WarpScoreboardParameter) extends Bundle {
+  val warpID = Input(UInt(log2Ceil(parameter.warpNum).W))
+  val addr = Vec(parameter.opNum, Input(UInt(5.W)))
+  val busy = Output(Vec(parameter.opNum, Bool()))
+}
+
 class WarpScoreboardReadIO(val parameter: WarpScoreboardParameter) extends Bundle {
   val warpID = Input(UInt(log2Ceil(parameter.warpNum).W))
   val addr = Vec(parameter.opNum, Input(UInt(5.W)))

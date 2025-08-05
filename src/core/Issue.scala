@@ -23,23 +23,23 @@ class IssueStageInterface(parameter: OGPUParameter) extends Bundle {
   val fpuIssue = DecoupledIO(new FPUOperandBundle(parameter))
 
   // Register file interfaces
-  val intRegFile = Flipped(new RegFileReadIO(parameter.xLen, opNum = 3)) // ALU使用0-1，FPU使用2
-  val fpRegFile = Flipped(new RegFileReadIO(parameter.xLen, opNum = 3))
-  val vecRegFile = Flipped(new RegFileReadIO(parameter.vLen, opNum = 2))
+  val intRegFile = Flipped(new RegFileReadBundle(parameter.xLen, opNum = 3)) // ALU使用0-1，FPU使用2
+  val fpRegFile = Flipped(new RegFileReadBundle(parameter.xLen, opNum = 3))
+  val vecRegFile = Flipped(new RegFileReadBundle(parameter.vLen, opNum = 2))
 
   // Scoreboard interfaces
   val intScoreboard = Flipped(
-    new WarpScoreboardReadIO(
+    new WarpScoreboardReadBundle(
       WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 5)
     )
   )
   val fpScoreboard = Flipped(
-    new WarpScoreboardReadIO(
+    new WarpScoreboardReadBundle(
       WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4)
     )
   )
   val vecScoreboard = Flipped(
-    new WarpScoreboardReadIO(
+    new WarpScoreboardReadBundle(
       WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3)
     )
   )

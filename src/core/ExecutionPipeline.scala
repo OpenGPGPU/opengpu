@@ -5,6 +5,72 @@ import chisel3.util._
 import chisel3.experimental.SerializableModule
 import ogpu.fpu._
 
+/** 执行流水线Bundle
+  *
+  * 封装了执行单元的所有信号
+  */
+class ExecutionPipelineBundle(parameter: OGPUParameter) extends Bundle {
+  // 指令输入
+  val instruction = Flipped(DecoupledIO(new Bundle {
+    val instruction = new InstructionBundle(parameter.warpNum, 32)
+    val coreResult = new CoreDecoderInterface(parameter)
+    val fpuResult = new FPUDecoderInterface(parameter)
+    val rvc = Bool()
+  }))
+
+  // 执行结果输出
+  val result = DecoupledIO(new ResultBundle(parameter))
+
+  // 分支信息输出
+  val branchInfo = DecoupledIO(new BranchInfoBundle(parameter))
+
+  // 寄存器文件接口
+  val regFile = new Bundle {
+    val intRead = new RegFileReadBundle(parameter.xLen, opNum = 3)
+    val fpRead = new RegFileReadBundle(parameter.xLen, opNum = 3)
+    val vecRead = new RegFileReadBundle(parameter.vLen, opNum = 2)
+    val write = new RegFileWriteBundle(parameter)
+  }
+
+  // Scoreboard接口
+  val scoreboard = new Bundle {
+    val intRead = Flipped(
+      new WarpScoreboardReadBundle(
+        WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 5)
+      )
+    )
+    val fpRead = Flipped(
+      new WarpScoreboardReadBundle(
+        WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4)
+      )
+    )
+    val vecRead = Flipped(
+      new WarpScoreboardReadBundle(
+        WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3)
+      )
+    )
+    val intSet = new ScoreboardSetBundle(
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 1)
+    )
+    val fpSet = new ScoreboardSetBundle(
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4)
+    )
+    val vecSet = new ScoreboardSetBundle(
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3)
+    )
+    val intClear = new ScoreboardClearBundle(
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 5)
+    )
+    val fpClear = new ScoreboardClearBundle(
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4)
+    )
+  }
+
+  // 控制信号
+  val flush = Input(Bool())
+  val stall = Input(Bool())
+}
+
 /** 执行流水线接口
   *
   * 封装了执行单元的所有接口
@@ -29,26 +95,26 @@ class ExecutionPipelineInterface(parameter: OGPUParameter) extends Bundle {
 
   // 寄存器文件接口
   val regFile = new Bundle {
-    val intRead = Flipped(new RegFileReadIO(parameter.xLen, opNum = 3))
-    val fpRead = Flipped(new RegFileReadIO(parameter.xLen, opNum = 3))
-    val vecRead = Flipped(new RegFileReadIO(parameter.vLen, opNum = 2))
+    val intRead = Flipped(new RegFileReadBundle(parameter.xLen, opNum = 3))
+    val fpRead = Flipped(new RegFileReadBundle(parameter.xLen, opNum = 3))
+    val vecRead = Flipped(new RegFileReadBundle(parameter.vLen, opNum = 2))
     val write = Output(new RegFileWriteBundle(parameter))
   }
 
   // Scoreboard接口
   val scoreboard = new Bundle {
     val intRead = Flipped(
-      new WarpScoreboardReadIO(
+      new WarpScoreboardReadBundle(
         WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 5)
       )
     )
     val fpRead = Flipped(
-      new WarpScoreboardReadIO(
+      new WarpScoreboardReadBundle(
         WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4)
       )
     )
     val vecRead = Flipped(
-      new WarpScoreboardReadIO(
+      new WarpScoreboardReadBundle(
         WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3)
       )
     )
@@ -156,4 +222,12 @@ class ExecutionPipeline(val parameter: OGPUParameter)
   pipelineController.io.stages(0).ready := issueStage.io.in.ready
   pipelineController.io.stages(1).ready := aluExecution.io.in.ready && fpuExecution.io.in.ready
   pipelineController.io.stages(2).ready := writebackStage.io.in.ready
+
+  // 连接执行单元的out_ready信号
+  aluExecution.io.out.ready := writebackStage.io.in.ready
+  fpuExecution.io.out.ready := writebackStage.io.in.ready
+
+  // 连接流水线控制器的stages_3_ready和stages_4_ready信号
+  pipelineController.io.stages(3).ready := true.B
+  pipelineController.io.stages(4).ready := true.B
 }

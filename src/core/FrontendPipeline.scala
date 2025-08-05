@@ -3,6 +3,47 @@ package ogpu.core
 import chisel3._
 import chisel3.util._
 import chisel3.experimental.SerializableModule
+import org.chipsalliance.tilelink.bundle._
+
+/** 前端流水线Bundle
+  *
+  * 封装了前端的所有信号
+  */
+class FrontendPipelineBundle(parameter: OGPUParameter) extends Bundle {
+  // Warp管理接口
+  val warp = new Bundle {
+    val start = Flipped(DecoupledIO(new CuTaskBundle(32, parameter.warpNum, 4, parameter.xLen)))
+    val regInitDone = Input(Bool())
+    val finish = Input(Valid(UInt(log2Ceil(parameter.warpNum).W)))
+  }
+
+  // 指令输出
+  val instruction = DecoupledIO(new Bundle {
+    val instruction = new InstructionBundle(parameter.warpNum, 32)
+    val coreResult = new CoreDecoderInterface(parameter)
+    val fpuResult = new FPUDecoderInterface(parameter)
+    val rvc = Bool()
+  })
+
+  // 分支解析接口
+  val branchUpdate = Flipped(ValidIO(new BranchResultBundle(parameter)))
+
+  // 内存接口
+  val memory = new TLLink(
+    TLLinkParameter(
+      addressWidth = 34,
+      sourceWidth = 8,
+      sinkWidth = 8,
+      dataWidth = 64,
+      sizeWidth = 4,
+      hasBCEChannels = false
+    )
+  )
+
+  // 控制信号
+  val flush = Input(Bool())
+  val stall = Input(Bool())
+}
 
 /** 前端流水线接口
   *
@@ -28,33 +69,19 @@ class FrontendPipelineInterface(parameter: OGPUParameter) extends Bundle {
   })
 
   // 分支解析接口
-  val branchUpdate = Flipped(ValidIO(new BranchResultBundle(parameter)))
+  val branchUpdate = Flipped(Valid(new BranchResultBundle(parameter)))
 
   // 内存接口
-  val memory = new Bundle {
-    val tilelink = new Bundle {
-      val a = DecoupledIO(new Bundle {
-        val opcode = UInt(3.W)
-        val param = UInt(3.W)
-        val size = UInt(4.W)
-        val source = UInt(8.W)
-        val address = UInt(34.W)
-        val mask = UInt(8.W)
-        val data = UInt(64.W)
-        val corrupt = Bool()
-      })
-      val d = Flipped(DecoupledIO(new Bundle {
-        val opcode = UInt(3.W)
-        val param = UInt(3.W)
-        val size = UInt(4.W)
-        val source = UInt(8.W)
-        val sink = UInt(8.W)
-        val denied = Bool()
-        val data = UInt(64.W)
-        val corrupt = Bool()
-      }))
-    }
-  }
+  val memory = new TLLink(
+    TLLinkParameter(
+      addressWidth = 34,
+      sourceWidth = 8,
+      sinkWidth = 8,
+      dataWidth = 64,
+      sizeWidth = 4,
+      hasBCEChannels = false
+    )
+  )
 
   // 控制信号
   val flush = Input(Bool())
@@ -149,13 +176,19 @@ class FrontendPipeline(val parameter: OGPUParameter)
   warpFrontend.io.reg_init_done := io.warp.regInitDone
   warpFrontend.io.warp_finish := io.warp.finish
 
+  // 连接WarpFrontend的warp_start接口 - 从CuTaskBundle映射到WarpFrontend接口
+  warpFrontend.io.warp_start.valid := io.warp.start.valid
+  warpFrontend.io.warp_start.bits.wid := 0.U // 默认使用warp 0，因为CuTaskBundle没有wid字段
+  warpFrontend.io.warp_start.bits.pc := io.warp.start.bits.pc
+  io.warp.start.ready := warpFrontend.io.warp_start.ready
+
   // 连接前端
   frontend.io.nonDiplomatic.cpu.req <> warpFrontend.io.frontend_req
   warpFrontend.io.frontend_resp <> frontend.io.nonDiplomatic.cpu.resp
 
   // 连接内存接口
-  io.memory.tilelink.a <> frontend.io.instructionFetchTileLink.a
-  frontend.io.instructionFetchTileLink.d <> io.memory.tilelink.d
+  io.memory.a <> frontend.io.instructionFetchTileLink.a
+  frontend.io.instructionFetchTileLink.d <> io.memory.d
 
   // 连接解码管道
   decodePipe.io.instruction <> warpFrontend.io.decode
@@ -177,8 +210,50 @@ class FrontendPipeline(val parameter: OGPUParameter)
   decodePipe.io.coreResult.ready := io.instruction.ready && !io.stall
   decodePipe.io.fpuResult.ready := io.instruction.ready && !io.stall
 
-  // 前端控制 - 移除错误的连接，这些是输出端口
-  // frontend.io.nonDiplomatic.ptw.req.valid := false.B
-  // frontend.io.nonDiplomatic.ptw.resp.valid := false.B
-  // frontend.io.nonDiplomatic.ptw.ptbr := 0.U.asTypeOf(frontend.io.nonDiplomatic.ptw.ptbr)
+  // 连接WarpFrontend的decode_control接口
+  warpFrontend.io.decode_control.valid := false.B
+  warpFrontend.io.decode_control.bits.wid := 0.U
+  warpFrontend.io.decode_control.bits.is_branch := false.B
+  warpFrontend.io.decode_control.bits.next_pc := 0.U
+  warpFrontend.io.decode_control.bits.activate := false.B
+  warpFrontend.io.decode_control.bits.is_compressed := false.B
+
+  // 连接Frontend的resetVector和nonDiplomatic接口
+  frontend.io.resetVector := 0x80000000L.U(40.W) // Default reset vector
+  frontend.io.nonDiplomatic.ptw.ptbr.ppn := 0.U
+  frontend.io.nonDiplomatic.ptw.ptbr.asid := 0.U
+  frontend.io.nonDiplomatic.ptw.ptbr.mode := 0.U
+  frontend.io.nonDiplomatic.ptw.resp.valid := false.B
+  frontend.io.nonDiplomatic.ptw.resp.bits.homogeneous := false.B
+  frontend.io.nonDiplomatic.ptw.resp.bits.fragmented_superpage := false.B
+  frontend.io.nonDiplomatic.ptw.resp.bits.level := 0.U
+  frontend.io.nonDiplomatic.ptw.resp.bits.pte.v := false.B
+  frontend.io.nonDiplomatic.ptw.resp.bits.pte.r := false.B
+  frontend.io.nonDiplomatic.ptw.resp.bits.pte.w := false.B
+  frontend.io.nonDiplomatic.ptw.resp.bits.pte.x := false.B
+  frontend.io.nonDiplomatic.ptw.resp.bits.pte.u := false.B
+  frontend.io.nonDiplomatic.ptw.resp.bits.pte.g := false.B
+  frontend.io.nonDiplomatic.ptw.resp.bits.pte.a := false.B
+  frontend.io.nonDiplomatic.ptw.resp.bits.pte.d := false.B
+  frontend.io.nonDiplomatic.ptw.resp.bits.pte.reserved_for_software := 0.U
+  frontend.io.nonDiplomatic.ptw.resp.bits.pte.ppn := 0.U
+  frontend.io.nonDiplomatic.ptw.resp.bits.pte.reserved_for_future := 0.U
+  frontend.io.nonDiplomatic.ptw.resp.bits.pf := false.B
+  frontend.io.nonDiplomatic.ptw.resp.bits.ae_final := false.B
+  frontend.io.nonDiplomatic.ptw.resp.bits.ae_ptw := false.B
+  frontend.io.nonDiplomatic.ptw.req.ready := false.B
+  frontend.io.nonDiplomatic.cpu.progress := false.B
+  frontend.io.nonDiplomatic.cpu.flush_icache := false.B
+  frontend.io.nonDiplomatic.cpu.ras_update.valid := false.B
+  frontend.io.nonDiplomatic.cpu.ras_update.bits.returnAddr := 0.U
+  frontend.io.nonDiplomatic.cpu.ras_update.bits.cfiType := 0.U
+  frontend.io.nonDiplomatic.cpu.sfence.valid := false.B
+  frontend.io.nonDiplomatic.cpu.sfence.bits.asid := 0.U
+  frontend.io.nonDiplomatic.cpu.sfence.bits.addr := 0.U
+  frontend.io.nonDiplomatic.cpu.sfence.bits.rs2 := 0.U
+  frontend.io.nonDiplomatic.cpu.sfence.bits.rs1 := 0.U
+  frontend.io.nonDiplomatic.cpu.might_request := false.B
+
+  // 连接DecodePipe的vectorResult接口
+  decodePipe.io.vectorResult.ready := false.B
 }

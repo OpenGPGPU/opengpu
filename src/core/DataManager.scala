@@ -3,6 +3,66 @@ package ogpu.core
 import chisel3._
 import chisel3.experimental.SerializableModule
 
+/** 数据管理Bundle
+  *
+  * 封装了寄存器文件和Scoreboard的所有信号
+  */
+class DataManagerBundle(parameter: OGPUParameter) extends Bundle {
+  // 寄存器文件接口
+  val regFile = new Bundle {
+    val intRead = Flipped(new RegFileReadBundle(parameter.xLen, opNum = 3))
+    val fpRead = Flipped(new RegFileReadBundle(parameter.xLen, opNum = 3))
+    val vecRead = Flipped(new RegFileReadBundle(parameter.vLen, opNum = 2))
+    val write = new RegFileWriteBundle(parameter)
+  }
+
+  // Scoreboard接口
+  val scoreboard = new Bundle {
+    val intRead =
+      Flipped(
+        new WarpScoreboardReadBundle(
+          WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 5)
+        )
+      )
+    val fpRead =
+      Flipped(
+        new WarpScoreboardReadBundle(
+          WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4)
+        )
+      )
+
+    val vecRead =
+      Flipped(
+        new WarpScoreboardReadBundle(
+          WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3)
+        )
+      )
+
+    val intSet = new ScoreboardSetBundle(
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 1)
+    )
+    val fpSet = new ScoreboardSetBundle(
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4)
+    )
+    val vecSet = new ScoreboardSetBundle(
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3)
+    )
+    val intClear = new ScoreboardClearBundle(
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 5)
+    )
+    val fpClear = new ScoreboardClearBundle(
+      WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4)
+    )
+  }
+
+  // 状态监控
+  val status = new Bundle {
+    val intRegBusy = UInt(32.W)
+    val fpRegBusy = UInt(32.W)
+    val vecRegBusy = UInt(32.W)
+  }
+}
+
 /** 数据管理接口
   *
   * 封装了寄存器文件和Scoreboard的所有接口
@@ -13,29 +73,29 @@ class DataManagerInterface(parameter: OGPUParameter) extends Bundle {
 
   // 寄存器文件接口
   val regFile = new Bundle {
-    val intRead = Flipped(new RegFileReadIO(parameter.xLen, opNum = 3))
-    val fpRead = Flipped(new RegFileReadIO(parameter.xLen, opNum = 3))
-    val vecRead = Flipped(new RegFileReadIO(parameter.vLen, opNum = 2))
+    val intRead = new RegFileReadBundle(parameter.xLen, opNum = 3)
+    val fpRead = new RegFileReadBundle(parameter.xLen, opNum = 3)
+    val vecRead = new RegFileReadBundle(parameter.vLen, opNum = 2)
     val write = Input(new RegFileWriteBundle(parameter))
   }
 
   // Scoreboard接口
   val scoreboard = new Bundle {
-    val intRead = Flipped(
-      new WarpScoreboardReadIO(
+    val intRead =
+      new WarpScoreboardReadBundle(
         WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 5)
       )
-    )
-    val fpRead = Flipped(
-      new WarpScoreboardReadIO(
+
+    val fpRead =
+      new WarpScoreboardReadBundle(
         WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 4)
       )
-    )
-    val vecRead = Flipped(
-      new WarpScoreboardReadIO(
+
+    val vecRead =
+      new WarpScoreboardReadBundle(
         WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3)
       )
-    )
+
     val intSet = Input(
       new ScoreboardSetBundle(
         WarpScoreboardParameter(parameter.warpNum, 32, zero = true, opNum = 1)
@@ -184,6 +244,12 @@ class DataManager(val parameter: OGPUParameter)
   intRegFile.io.write <> io.regFile.write
   fpRegFile.io.write <> io.regFile.write
 
+  // 连接vecRegFile的write接口
+  vecRegFile.io.write.en := false.B
+  vecRegFile.io.write.warpID := 0.U
+  vecRegFile.io.write.addr := 0.U
+  vecRegFile.io.write.data := 0.U
+
   // 连接Scoreboard
   intScoreboard.io.read <> io.scoreboard.intRead
   fpScoreboard.io.read <> io.scoreboard.fpRead
@@ -193,6 +259,11 @@ class DataManager(val parameter: OGPUParameter)
   vecScoreboard.io.set <> io.scoreboard.vecSet
   intScoreboard.io.clear <> io.scoreboard.intClear
   fpScoreboard.io.clear <> io.scoreboard.fpClear
+
+  // 连接vecScoreboard的clear接口
+  vecScoreboard.io.clear.en := false.B
+  vecScoreboard.io.clear.warpID := 0.U
+  vecScoreboard.io.clear.addr := 0.U
 
   // 状态监控
   io.status.intRegBusy := intScoreboard.io.read.busy.asUInt

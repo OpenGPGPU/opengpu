@@ -5,7 +5,7 @@ import chisel3.util._
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
-class RegFileReadIO(dataWidth: Int, opNum: Int = 2) extends Bundle {
+class RegFileReadBundle(dataWidth: Int, opNum: Int = 2) extends Bundle {
   val read = Vec(
     opNum,
     Input(new Bundle {
@@ -15,14 +15,39 @@ class RegFileReadIO(dataWidth: Int, opNum: Int = 2) extends Bundle {
   val readData = Vec(opNum, Output(UInt(dataWidth.W)))
 }
 
-class RegFileIO(dataWidth: Int, opNum: Int = 2) extends RegFileReadIO(dataWidth, opNum) {
+class RegFileReadInterface(dataWidth: Int, opNum: Int = 2) extends Bundle {
+  val read = Vec(
+    opNum,
+    Input(new Bundle {
+      val addr = UInt(5.W)
+    })
+  )
+  val readData = Vec(opNum, Output(UInt(dataWidth.W)))
+}
+
+class RegFileBundle(dataWidth: Int, opNum: Int = 2) extends RegFileReadBundle(dataWidth, opNum) {
+  val write = new Bundle {
+    val addr = UInt(5.W)
+    val data = UInt(dataWidth.W)
+    val en = Bool()
+  }
+}
+
+class RegFileInterface(dataWidth: Int, opNum: Int = 2) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
+  val read = Vec(
+    opNum,
+    Input(new Bundle {
+      val addr = UInt(5.W)
+    })
+  )
   val write = Input(new Bundle {
     val addr = UInt(5.W)
     val data = UInt(dataWidth.W)
     val en = Bool()
   })
+  val readData = Vec(opNum, Output(UInt(dataWidth.W)))
 }
 
 case class RegFileParameter(
@@ -34,7 +59,7 @@ case class RegFileParameter(
 
 @instantiable
 class RegFile(val parameter: RegFileParameter)
-    extends FixedIORawModule(new RegFileIO(parameter.dataWidth, parameter.opNum))
+    extends FixedIORawModule(new RegFileInterface(parameter.dataWidth, parameter.opNum))
     with SerializableModule[RegFileParameter]
     with Public
     with ImplicitClock
@@ -55,7 +80,25 @@ class RegFile(val parameter: RegFileParameter)
     access(io.write.addr) := io.write.data
   }
 }
-class WarpRegFileIO(warpNum: Int, dataWidth: Int, opNum: Int = 2) extends Bundle {
+
+class WarpRegFileBundle(warpNum: Int, dataWidth: Int, opNum: Int = 2) extends Bundle {
+  val read = Vec(
+    opNum,
+    Input(new Bundle {
+      val warpID = UInt(log2Ceil(warpNum).W)
+      val addr = UInt(5.W)
+    })
+  )
+  val write = Input(new Bundle {
+    val en = Bool()
+    val warpID = UInt(log2Ceil(warpNum).W)
+    val addr = UInt(5.W)
+    val data = UInt(dataWidth.W)
+  })
+  val readData = Vec(opNum, Output(UInt(dataWidth.W)))
+}
+
+class WarpRegFileInterface(warpNum: Int, dataWidth: Int, opNum: Int = 2) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
   val read = Vec(
@@ -83,7 +126,7 @@ case class WarpRegFileParameter(
 
 @instantiable
 class WarpRegFile(val parameter: WarpRegFileParameter)
-    extends FixedIORawModule(new WarpRegFileIO(parameter.warpNum, parameter.dataWidth, parameter.opNum))
+    extends FixedIORawModule(new WarpRegFileInterface(parameter.warpNum, parameter.dataWidth, parameter.opNum))
     with SerializableModule[WarpRegFileParameter]
     with Public
     with ImplicitClock
