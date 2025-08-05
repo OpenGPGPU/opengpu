@@ -4,7 +4,6 @@ import chisel3._
 import chisel3.util._
 import chisel3.experimental.hierarchy.instantiable
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
-import ogpu.core.RegFileWriteBundle
 
 class RegFileReadIO(dataWidth: Int, opNum: Int = 2) extends Bundle {
   val read = Vec(
@@ -56,7 +55,7 @@ class RegFile(val parameter: RegFileParameter)
     access(io.write.addr) := io.write.data
   }
 }
-class WarpRegFileIO(warpNum: Int, dataWidth: Int, opNum: Int = 2, parameter: OGPUParameter) extends Bundle {
+class WarpRegFileIO(warpNum: Int, dataWidth: Int, opNum: Int = 2) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
   val read = Vec(
@@ -66,7 +65,12 @@ class WarpRegFileIO(warpNum: Int, dataWidth: Int, opNum: Int = 2, parameter: OGP
       val addr = UInt(5.W)
     })
   )
-  val write = Input(new RegFileWriteBundle(parameter))
+  val write = Input(new Bundle {
+    val en = Bool()
+    val warpID = UInt(log2Ceil(warpNum).W)
+    val addr = UInt(5.W)
+    val data = UInt(dataWidth.W)
+  })
   val readData = Vec(opNum, Output(UInt(dataWidth.W)))
 }
 
@@ -79,7 +83,7 @@ case class WarpRegFileParameter(
 
 @instantiable
 class WarpRegFile(val parameter: WarpRegFileParameter)
-    extends FixedIORawModule(new WarpRegFileIO(parameter.warpNum, parameter.dataWidth, parameter.opNum, null))
+    extends FixedIORawModule(new WarpRegFileIO(parameter.warpNum, parameter.dataWidth, parameter.opNum))
     with SerializableModule[WarpRegFileParameter]
     with Public
     with ImplicitClock

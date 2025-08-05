@@ -115,8 +115,6 @@ case class OGPUParameter(
     memCommand,
     wxd,
     csr,
-    mul,
-    div,
     fenceI,
     fence,
     amo,
