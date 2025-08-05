@@ -36,7 +36,6 @@ class IssueStageTest extends AnyFlatSpec {
       dut.io.fpuIssue.ready.poke(false.B)
 
       dut.io.clock.step()
-      dut.io.in.valid.poke(false.B)
       dut.io.aluIssue.valid.expect(true.B)
     }
   }
