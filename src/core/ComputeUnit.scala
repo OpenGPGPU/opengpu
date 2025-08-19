@@ -121,8 +121,25 @@ class ComputeUnit(val parameter: OGPUParameter)
   // 数据管理模块
   val dataManager = Module(new DataManager(parameter))
 
+  // 负载/存储单元 LSU（先接入，后续与执行流水线/共享DCache对接）
+  val lsu = Module(new LSU(parameter))
+
+  // 共享 DCache（临时接入，后续将其 TileLink/PTW 接到系统总线）
+  private val dcacheParam = DCacheParameter(
+    useAsyncReset = parameter.useAsyncReset,
+    nSets = 64,
+    nWays = 4,
+    blockBytes = 64,
+    vaddrBits = parameter.vaddrBitsExtended,
+    paddrBits = 40,
+    dataWidth = parameter.xLen
+  )
+  val dcache = Module(new DCache(dcacheParam))
+
   // 分支解析模块
   val scalarBranch = Module(new ScalarBranch(parameter))
+  // 页表遍历器 PTW（适配 GPUCache 的简单 PTW IO）
+  val ptw = Module(new PTWAdapter(parameter))
 
   // ===== 时钟和复位连接 =====
 
@@ -134,6 +151,10 @@ class ComputeUnit(val parameter: OGPUParameter)
   dataManager.io.reset := io.reset
   scalarBranch.io.clock := io.clock
   scalarBranch.io.reset := io.reset
+  lsu.io.clock := io.clock
+  lsu.io.reset := io.reset
+  dcache.io.clock := io.clock
+  dcache.io.reset := io.reset
 
   // ===== 任务接口连接 =====
 
@@ -164,6 +185,37 @@ class ComputeUnit(val parameter: OGPUParameter)
   // 连接执行流水线到数据管理
   executionPipeline.io.regFile <> dataManager.io.regFile
   executionPipeline.io.scoreboard <> dataManager.io.scoreboard
+
+  // ===== LSU 对接执行流水线的内存端口 =====
+  lsu.io.req <> executionPipeline.io.mem.req
+  executionPipeline.io.mem.resp <> lsu.io.resp
+
+  // ===== LSU 暂时接线（占位）：后续与Issue/Writeback/DCache对接 =====
+  // 暂不发起请求
+  lsu.io.req.valid := false.B
+  lsu.io.req.bits.wid := 0.U
+  lsu.io.req.bits.vaddr := 0.U
+  lsu.io.req.bits.cmd := 0.U
+  lsu.io.req.bits.size := 0.U
+  lsu.io.req.bits.data := 0.U
+  // 始终准备好接收响应（避免阻塞）
+  lsu.io.resp.ready := true.B
+
+  // LSU <-> DCache 连接（共享 DCache）
+  dcache.io.req <> lsu.io.dcacheReq
+  dcache.io.resp <> lsu.io.dcacheResp
+
+  // DCache TileLink 暂不接入系统总线（保持未连接，后续在顶层对接）
+
+  // PTW 连接到 DCache 的 GPUTLBPTWIO 和 sideband
+  dcache.io.ptw <> ptw.io.gpu
+  dcache.io.ptwMem <> ptw.io.mem
+  dcache.io.ptwMemResp <> ptw.io.memResp
+
+  // 暂时拉低 TL D 通道 valid，并将 A 通道 ready 拉高，避免未驱动下游报错（顶层应真正连接）
+  dcache.io.memory.tilelink.d.valid := false.B
+  dcache.io.memory.tilelink.d.bits := DontCare
+  dcache.io.memory.tilelink.a.ready := true.B
 
   // ===== 分支处理连接 =====
 

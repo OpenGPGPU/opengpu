@@ -54,6 +54,8 @@ class IssueStageInterface(parameter: OGPUParameter) extends Bundle {
   val vecScoreboardSet = Output(
     new ScoreboardSetBundle(WarpScoreboardParameter(parameter.warpNum, 32, zero = false, opNum = 3))
   )
+  // Memory issue to LSU
+  val memIssue = DecoupledIO(new LSUReq(parameter))
 }
 
 class IssueStage(val parameter: OGPUParameter)
@@ -109,6 +111,22 @@ class IssueStage(val parameter: OGPUParameter)
   fpuIssueModule.io.intScoreboard.busy(1) := io.intScoreboard.busy(4)
   io.fpuIssue <> fpuIssueModule.io.fpuIssue
 
+  // ===== 内存指令发射（最小实现） =====
+  val isMem = io.in.valid && (io.in.bits.coreResult.output(parameter.execType) === parameter.ExecutionType.MEM)
+  io.memIssue.valid := isMem
+  io.memIssue.bits.wid := io.in.bits.instruction.wid
+  val memInst = io.in.bits.instruction.instruction
+  val memImmI = Cat(Fill(20, memInst(31)), memInst(31, 20))
+  val memRs1Data = io.intRegFile.readData(0)
+  io.memIssue.bits.vaddr := (memRs1Data.asUInt + memImmI.asUInt)(parameter.vaddrBitsExtended - 1, 0)
+  val memFunct3 = memInst(14, 12)
+  val memIsStore = memInst(5)
+  io.memIssue.bits.cmd := Mux(memIsStore, 1.U, 0.U)
+  io.memIssue.bits.size := memFunct3(1, 0) ## 0.U(1.W)
+  io.memIssue.bits.data := io.intRegFile.readData(1) // rs2 for store
+  // rd for load writeback
+  io.memIssue.bits.rd := memInst(11, 7)
+
   // 其他接口直通
   io.vecRegFile <> DontCare
   io.vecScoreboard <> DontCare
@@ -120,7 +138,7 @@ class IssueStage(val parameter: OGPUParameter)
     Mux(
       io.in.bits.coreResult.output(parameter.execType) === parameter.ExecutionType.FPU,
       fpuIssueModule.io.in.ready,
-      true.B // 默认值
+      io.memIssue.ready // MEM 指令由 memIssue 控制
     )
   )
 

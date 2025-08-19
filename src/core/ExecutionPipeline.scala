@@ -145,6 +145,12 @@ class ExecutionPipelineInterface(parameter: OGPUParameter) extends Bundle {
     )
   }
 
+  // 内存请求/响应接口（连接到外部 LSU）
+  val mem = new Bundle {
+    val req = Decoupled(new LSUReq(parameter))
+    val resp = Flipped(Decoupled(new LSUResp(parameter)))
+  }
+
   // 控制信号
   val flush = Input(Bool())
   val stall = Input(Bool())
@@ -200,10 +206,27 @@ class ExecutionPipeline(val parameter: OGPUParameter)
   // 连接执行单元
   aluExecution.io.in <> issueStage.io.aluIssue
   fpuExecution.io.in <> issueStage.io.fpuIssue
+  // 内存请求连到外部 LSU
+  io.mem.req <> issueStage.io.memIssue
+  // 暂时丢弃 LSU 响应，后续写回
+  io.mem.resp.ready := true.B
 
   // 连接写回阶段
-  writebackStage.io.in.valid := aluExecution.io.out.valid || fpuExecution.io.out.valid
-  writebackStage.io.in.bits := Mux(aluExecution.io.out.valid, aluExecution.io.out.bits, fpuExecution.io.out.bits)
+  val memWbValid = io.mem.resp.valid
+  val memWbBits = Wire(new ResultBundle(parameter))
+  memWbBits.result := io.mem.resp.bits.data
+  memWbBits.warpID := io.mem.resp.bits.wid
+  memWbBits.rd := io.mem.resp.bits.rd
+  memWbBits.exception := io.mem.resp.bits.exception
+  memWbBits.fflags := 0.U
+
+  // Priority: ALU > FPU > MEM (arbitrary for now)
+  writebackStage.io.in.valid := aluExecution.io.out.valid || fpuExecution.io.out.valid || memWbValid
+  writebackStage.io.in.bits := Mux(
+    aluExecution.io.out.valid,
+    aluExecution.io.out.bits,
+    Mux(fpuExecution.io.out.valid, fpuExecution.io.out.bits, memWbBits)
+  )
 
   // 连接输出
   io.result.valid := writebackStage.io.in.valid
@@ -226,6 +249,8 @@ class ExecutionPipeline(val parameter: OGPUParameter)
   // 连接执行单元的out_ready信号
   aluExecution.io.out.ready := writebackStage.io.in.ready
   fpuExecution.io.out.ready := writebackStage.io.in.ready
+  // Memory response consumed when writeback takes it
+  io.mem.resp.ready := writebackStage.io.in.ready && !aluExecution.io.out.valid && !fpuExecution.io.out.valid
 
   // 连接流水线控制器的stages_3_ready和stages_4_ready信号
   pipelineController.io.stages(3).ready := true.B
