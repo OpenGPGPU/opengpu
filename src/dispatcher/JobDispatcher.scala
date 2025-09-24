@@ -21,6 +21,7 @@ class DispatcherInterface(parameter: DispatcherParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val queue = Flipped(DecoupledIO(new QueueBundle))
+  val queue_resp = DecoupledIO(new QueueRespBundle) // 添加队列响应输出
   val task = DecoupledIO(new WorkGroupTaskBundle)
   val task_resp = Flipped(DecoupledIO(new WorkGroupTaskRespBundle))
 }
@@ -187,4 +188,9 @@ class JobDispatcher(val parameter: DispatcherParameter)
       // io.intr.valid := false.B
     }
   }
+
+  // ===== 队列响应逻辑 =====
+  // 当所有工作组完成时，向队列发送完成响应
+  io.queue_resp.valid := state_rec === s_rec_finish
+  io.queue_resp.bits.finish := true.B
 }

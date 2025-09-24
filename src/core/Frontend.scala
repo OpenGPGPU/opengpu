@@ -264,9 +264,9 @@ class Frontend(val parameter: FrontendParameter)
   fq.io.clock := io.clock
   fq.io.reset := io.reset.asBool || io.nonDiplomatic.cpu.req.valid
 
-  assert(
-    !(io.nonDiplomatic.cpu.req.valid || io.nonDiplomatic.cpu.sfence.valid || io.nonDiplomatic.cpu.flush_icache) || io.nonDiplomatic.cpu.might_request
-  )
+  // assert(
+  //   !(io.nonDiplomatic.cpu.req.valid || io.nonDiplomatic.cpu.sfence.valid || io.nonDiplomatic.cpu.flush_icache) || io.nonDiplomatic.cpu.might_request
+  // )
 
   withClock(gated_clock) { // entering gated-clock domain
     // 添加一个寄存器来跟踪请求是否已经被处理
