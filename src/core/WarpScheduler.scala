@@ -121,7 +121,9 @@ class WarpScheduler(val parameter: WarpParameter)
   sgpr_writer.io.wid := lock_warp
   sgpr_writer.io.finish.ready := state === s_finish
 
-  io.warp_cmd.ready := state === s_finish
+  // ready信号在空闲状态时为高，只有在工作状态时才为低
+  // 这样可以减少延迟，提高吞吐量
+  io.warp_cmd.ready := state === s_idle & has_idle
 
   // temp
   vgpr_writer.io.commit_data.ready := true.B
@@ -129,7 +131,7 @@ class WarpScheduler(val parameter: WarpParameter)
 
   switch(state) {
     is(s_idle) {
-      when(io.warp_cmd.valid && has_idle) {
+      when(io.warp_cmd.fire) {
         state := s_working
         lock_warp := idle_id
       }

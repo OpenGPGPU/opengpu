@@ -1,51 +1,51 @@
 # OGPU System Integration
 
-这个目录包含了完整的OGPU系统集成，包括core和dispatcher的连接。
+This directory contains the complete OGPU system integration, including connections between core and dispatcher components.
 
-## 文件结构
+## File Structure
 
 ```
 src/system/
-├── OGPU.scala                    # 主入口模块
-├── OGPUSystem.scala             # 核心系统模块
-├── OGPUSystemTop.scala          # 顶层系统模块
-├── SystemConfigs.scala          # 系统配置预设
-└── README.md                    # 本文档
+├── OGPU.scala                    # Main entry module
+├── OGPUSystem.scala             # Core system module
+├── OGPUSystemTop.scala          # Top-level system module
+├── SystemConfigs.scala          # System configuration presets
+└── README.md                    # This document
 ```
 
-## 主要组件
+## Main Components
 
 ### 1. OGPU.scala
-- **功能**: 系统主入口模块
-- **特点**: 
-  - 提供最顶层的接口
-  - 支持多种预定义配置
-  - 提供工厂方法创建不同配置的实例
+- **Function**: Main system entry module
+- **Features**: 
+  - Provides top-level interfaces
+  - Supports multiple predefined configurations
+  - Provides factory methods to create instances with different configurations
 
 ### 2. OGPUSystem.scala
-- **功能**: 核心系统模块
-- **特点**:
-  - 集成所有dispatcher和compute unit
-  - 实现完整的任务调度流程
-  - 包含内存仲裁器和路由逻辑
+- **Function**: Core system module
+- **Features**:
+  - Integrates all dispatchers and compute units
+  - Implements complete task scheduling flow
+  - Includes memory arbiter and routing logic
 
 ### 3. OGPUSystemTop.scala
-- **功能**: 顶层系统模块
-- **特点**:
-  - 时钟域管理
-  - 复位管理
-  - 性能计数器
-  - 中断处理
-  - 调试支持
+- **Function**: Top-level system module
+- **Features**:
+  - Clock domain management
+  - Reset management
+  - Performance counters
+  - Interrupt handling
+  - Debug support
 
 ### 4. SystemConfigs.scala
-- **功能**: 系统配置预设
-- **特点**:
-  - 提供多种预定义配置
-  - 配置验证功能
-  - 配置字符串化
+- **Function**: System configuration presets
+- **Features**:
+  - Provides multiple predefined configurations
+  - Configuration validation functionality
+  - Configuration stringification
 
-## 系统架构
+## System Architecture
 
 ```
 Host System
@@ -69,20 +69,20 @@ Memory Arbiter
 System Memory
 ```
 
-## 配置选项
+## Configuration Options
 
-### 预定义配置
+### Predefined Configurations
 
-1. **Minimal** - 最小配置，用于测试
-2. **Small** - 小型配置，用于原型验证
-3. **Medium** - 中型配置，用于实际应用
-4. **Large** - 大型配置，用于高性能应用
-5. **Maximum** - 最大配置，用于最大性能
-6. **VectorOptimized** - 向量处理优化配置
-7. **LowPower** - 低功耗配置
-8. **Test** - 测试配置
+1. **Minimal** - Minimal configuration for testing
+2. **Small** - Small configuration for prototyping
+3. **Medium** - Medium configuration for practical applications
+4. **Large** - Large configuration for high-performance applications
+5. **Maximum** - Maximum configuration for peak performance
+6. **VectorOptimized** - Vector processing optimized configuration
+7. **LowPower** - Low power configuration
+8. **Test** - Test configuration
 
-### 自定义配置
+### Custom Configuration
 
 ```scala
 val customConfig = OGPUSystemParameter(
@@ -105,122 +105,122 @@ val customConfig = OGPUSystemParameter(
 val ogpu = Module(new OGPU(customConfig))
 ```
 
-## 使用方法
+## Usage
 
-### 基本使用
+### Basic Usage
 
 ```scala
-// 创建小型配置的OGPU
+// Create a small configuration OGPU
 val ogpu = OGPU.small()
 
-// 或者使用工厂方法
+// Or use factory methods
 val ogpu = OGPU.create("Small").get
 ```
 
-### 高级使用
+### Advanced Usage
 
 ```scala
-// 创建自定义配置
+// Create custom configuration
 val config = OGPUSystemParameter(
-  // ... 配置参数
+  // ... configuration parameters
 )
 
-// 验证配置
+// Validate configuration
 if (OGPU.validateConfig(config)) {
   val ogpu = OGPU.create(config)
-  // 使用OGPU
+  // Use OGPU
 } else {
   println("Invalid configuration!")
 }
 ```
 
-## 接口说明
+## Interface Description
 
-### 输入接口
+### Input Interfaces
 
-- **queues**: 队列接口，接收来自主机的任务
-- **memory**: 内存接口，连接到系统内存
-- **clock/reset**: 时钟和复位信号
+- **queues**: Queue interfaces that receive tasks from the host
+- **memory**: Memory interface connected to system memory
+- **clock/reset**: Clock and reset signals
 
-### 输出接口
+### Output Interfaces
 
-- **queue_resps**: 队列响应接口
-- **debug**: 调试和监控接口
-- **interrupts**: 中断接口
+- **queue_resps**: Queue response interfaces
+- **debug**: Debug and monitoring interfaces
+- **interrupts**: Interrupt interfaces
 
-### 调试接口
+### Debug Interfaces
 
-- **systemBusy**: 系统忙碌状态
-- **activeComputeUnits**: 活跃的计算单元
-- **activeWorkGroups**: 活跃的工作组
-- **queueUtilization**: 队列利用率
-- **systemStatus**: 系统状态
-- **performanceCounters**: 性能计数器
+- **systemBusy**: System busy status
+- **activeComputeUnits**: Active compute units
+- **activeWorkGroups**: Active work groups
+- **queueUtilization**: Queue utilization
+- **systemStatus**: System status
+- **performanceCounters**: Performance counters
 
-## 测试
+## Testing
 
-系统级测试位于 `tests/OGPUSystemTest.scala`，包含：
+System-level tests are located in `tests/OGPUSystemTest.scala`, including:
 
-1. **系统初始化测试**
-2. **队列任务提交测试**
-3. **多队列提交测试**
-4. **并发计算单元执行测试**
-5. **系统复位测试**
+1. **System initialization test**
+2. **Queue task submission test**
+3. **Multiple queue submission test**
+4. **Concurrent compute unit execution test**
+5. **System reset test**
 
-## 性能特性
+## Performance Features
 
-### 并发处理
-- 支持多个计算单元并发执行
-- 支持多个工作组并发调度
-- 支持多个队列并发处理
+### Concurrent Processing
+- Supports concurrent execution of multiple compute units
+- Supports concurrent scheduling of multiple work groups
+- Supports concurrent processing of multiple queues
 
-### 内存管理
-- 内存仲裁器支持多计算单元共享内存
-- 支持TileLink协议
-- 支持页表遍历(PTW)
+### Memory Management
+- Memory arbiter supports multiple compute units sharing memory
+- Supports TileLink protocol
+- Supports Page Table Walk (PTW)
 
-### 调试支持
-- 实时性能监控
-- 系统状态监控
-- 中断支持
+### Debug Support
+- Real-time performance monitoring
+- System status monitoring
+- Interrupt support
 
-## 扩展性
+## Extensibility
 
-### 添加新的计算单元
-1. 修改 `numComputeUnits` 参数
-2. 系统会自动创建相应数量的计算单元
-3. 互连器会自动处理连接
+### Adding New Compute Units
+1. Modify the `numComputeUnits` parameter
+2. The system will automatically create the corresponding number of compute units
+3. Interconnectors will automatically handle connections
 
-### 添加新的队列
-1. 修改 `numQueues` 参数
-2. 系统会自动创建相应数量的队列接口
-3. 调度器会自动处理任务分发
+### Adding New Queues
+1. Modify the `numQueues` parameter
+2. The system will automatically create the corresponding number of queue interfaces
+3. Schedulers will automatically handle task distribution
 
-### 自定义调度策略
-1. 修改相应的dispatcher模块
-2. 实现自定义的调度算法
-3. 保持接口兼容性
+### Custom Scheduling Strategies
+1. Modify the corresponding dispatcher modules
+2. Implement custom scheduling algorithms
+3. Maintain interface compatibility
 
-## 注意事项
+## Notes
 
-1. **配置验证**: 使用前请验证配置的有效性
-2. **资源限制**: 确保配置不超过硬件资源限制
-3. **时钟域**: 注意时钟域的正确连接
-4. **复位序列**: 确保正确的复位序列
-5. **内存一致性**: 注意内存访问的一致性
+1. **Configuration Validation**: Please validate configuration validity before use
+2. **Resource Limits**: Ensure configuration does not exceed hardware resource limits
+3. **Clock Domains**: Pay attention to correct clock domain connections
+4. **Reset Sequence**: Ensure correct reset sequence
+5. **Memory Consistency**: Pay attention to memory access consistency
 
-## 故障排除
+## Troubleshooting
 
-### 常见问题
+### Common Issues
 
-1. **编译错误**: 检查配置参数是否有效
-2. **仿真失败**: 检查时钟和复位信号
-3. **性能问题**: 检查配置是否合理
-4. **内存错误**: 检查内存接口连接
+1. **Compilation Errors**: Check if configuration parameters are valid
+2. **Simulation Failures**: Check clock and reset signals
+3. **Performance Issues**: Check if configuration is reasonable
+4. **Memory Errors**: Check memory interface connections
 
-### 调试方法
+### Debug Methods
 
-1. 使用调试接口监控系统状态
-2. 检查性能计数器
-3. 使用VCD波形分析
-4. 检查日志输出
+1. Use debug interfaces to monitor system status
+2. Check performance counters
+3. Use VCD waveform analysis
+4. Check log output
