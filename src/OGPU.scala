@@ -23,6 +23,7 @@ case class OGPUParameter(
   minFLen:           Int = 16,
   vLen:              Int = 1024,
   xLen:              Int = 32,
+  memDataWidth:      Int = 64, // Memory data width (independent from xLen)
   useAsyncReset:     Boolean = false,
   clockGate:         Boolean = false,
   vaddrBits:         Int = 32,

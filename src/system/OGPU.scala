@@ -17,10 +17,6 @@ class OGPU(val parameter: OGPUSystemParameter = SystemConfigs.Small)
     with Public {
 
   val io = IO(new Bundle {
-    // 时钟和复位
-    val clock = Input(Clock())
-    val reset = Input(Bool())
-
     // 队列接口
     val queues = Vec(parameter.numQueues, Flipped(DecoupledIO(new QueueBundle)))
     val queue_resps = Vec(parameter.numQueues, DecoupledIO(new QueueRespBundle))
@@ -40,8 +36,8 @@ class OGPU(val parameter: OGPUSystemParameter = SystemConfigs.Small)
     // 调试接口
     val debug = Output(new Bundle {
       val systemBusy = Bool()
-      val activeComputeUnits = UInt(parameter.numComputeUnits.W)
-      val activeWorkGroups = UInt(parameter.numWorkGroups.W)
+      val activeComputeUnits = Vec(parameter.numComputeUnits, Bool())
+      val activeWorkGroups = Vec(parameter.numWorkGroups, Bool())
       val queueUtilization = Vec(parameter.numQueues, Bool())
       val systemStatus = UInt(8.W)
       val performanceCounters = new Bundle {
@@ -64,8 +60,6 @@ class OGPU(val parameter: OGPUSystemParameter = SystemConfigs.Small)
   val systemTop = Module(new OGPUSystemTop(parameter))
 
   // 连接所有接口
-  systemTop.io.clock := io.clock
-  systemTop.io.reset := io.reset
   systemTop.io.queues <> io.queues
   systemTop.io.queue_resps <> io.queue_resps
   systemTop.io.memory <> io.memory

@@ -17,7 +17,7 @@ object SystemConfigs {
     warpNum = 2,
     xLen = 32,
     vLen = 64,
-    vaddrBitsExtended = 32,
+    vaddrBitsExtended = 40,
     useAsyncReset = false,
     numQueues = 1,
     numJobs = 1,
@@ -206,10 +206,7 @@ object SystemConfigs {
         config.numWorkGroups > 0 &&
         config.numComputeUnits > 0 &&
         config.warpSize > 0 &&
-        config.bufferNum > 0 &&
-        config.numJobs <= config.numQueues &&
-        config.numWorkGroups <= config.numJobs &&
-        config.numComputeUnits <= config.numWorkGroups
+        config.bufferNum > 0
 
     if (!valid) {
       println("Invalid configuration detected!")

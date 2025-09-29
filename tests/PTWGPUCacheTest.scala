@@ -66,6 +66,7 @@ class PTWDCacheTest extends AnyFlatSpec {
     val ptwParams = PTWParameter(
       useAsyncReset = false,
       xLen = 64,
+      memDataWidth = 64,
       asidBits = 8,
       pgLevels = 3,
       usingAtomics = false,
@@ -162,6 +163,7 @@ class PTWDCacheTest extends AnyFlatSpec {
     val ptwParams = PTWParameter(
       useAsyncReset = false,
       xLen = 64,
+      memDataWidth = 64,
       asidBits = 8,
       pgLevels = 3,
       usingAtomics = false,

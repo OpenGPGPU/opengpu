@@ -39,6 +39,7 @@ case class OGPUSystemParameter(
     warpNum = warpNum,
     xLen = xLen,
     vLen = vLen,
+    memDataWidth = 64, // Set memory data width to 64 bits
     vaddrBitsExtended = vaddrBitsExtended,
     useAsyncReset = useAsyncReset
   )
@@ -111,6 +112,13 @@ class OGPUSystemInterface(parameter: OGPUSystemParameter) extends Bundle {
     val activeComputeUnits = Vec(parameter.numComputeUnits, Bool())
     val activeWorkGroups = Vec(parameter.numWorkGroups, Bool())
     val queueUtilization = Vec(parameter.numQueues, Bool())
+    val systemStatus = UInt(8.W)
+    val performanceCounters = new Bundle {
+      val totalCycles = UInt(64.W)
+      val activeCycles = UInt(64.W)
+      val completedTasks = UInt(32.W)
+      val memoryTransactions = UInt(32.W)
+    }
   })
 }
 
@@ -187,14 +195,30 @@ class OGPUSystem(val parameter: OGPUSystemParameter)
   }
 
   // 连接Queue-Job互连器到Job Dispatcher
+  // 只使用第一个job端口，其他端口保持未连接状态
   jobDispatcher.io.queue <> queueJobInterconnector.io.job(0)
   queueJobInterconnector.io.job_resp(0) <> jobDispatcher.io.queue_resp
+
+  // 将未使用的job端口设置为非活跃状态
+  for (i <- 1 until parameter.numJobs) {
+    queueJobInterconnector.io.job(i).ready := false.B
+    queueJobInterconnector.io.job_resp(i).valid := false.B
+    queueJobInterconnector.io.job_resp(i).bits := 0.U.asTypeOf(queueJobInterconnector.io.job_resp(i).bits)
+  }
 
   // ===== Job到WorkGroup的连接 =====
 
   // 连接Job Dispatcher到Job-WorkGroup互连器
+  // 只使用第一个job端口，其他端口保持未连接状态
   jobWorkGroupInterconnector.io.job(0) <> jobDispatcher.io.task
   jobWorkGroupInterconnector.io.job_resp(0) <> jobDispatcher.io.task_resp
+
+  // 将未使用的job端口设置为非活跃状态
+  for (i <- 1 until parameter.numJobs) {
+    jobWorkGroupInterconnector.io.job(i).valid := false.B
+    jobWorkGroupInterconnector.io.job(i).bits := 0.U.asTypeOf(jobWorkGroupInterconnector.io.job(i).bits)
+    jobWorkGroupInterconnector.io.job_resp(i).ready := false.B
+  }
 
   // 连接Job-WorkGroup互连器到WorkGroup Dispatchers
   for (i <- 0 until parameter.numWorkGroups) {
@@ -291,6 +315,51 @@ class OGPUSystem(val parameter: OGPUSystemParameter)
   for (i <- 0 until parameter.numQueues) {
     io.debug.queueUtilization(i) := io.queues(i).valid && io.queues(i).ready
   }
+
+  // 系统状态
+  io.debug.systemStatus := Cat(
+    false.B, // 位7: 保留
+    false.B, // 位6: 保留
+    false.B, // 位5: 保留
+    false.B, // 位4: 保留
+    false.B, // 位3: 内存错误（可以添加检测逻辑）
+    false.B, // 位2: 系统错误（可以添加检测逻辑）
+    io.debug.systemBusy, // 位1: 系统忙碌
+    !io.debug.systemBusy // 位0: 系统空闲
+  )
+
+  // ===== 性能计数器 =====
+
+  val totalCycles = RegInit(0.U(64.W))
+  val activeCycles = RegInit(0.U(64.W))
+  val completedTasks = RegInit(0.U(32.W))
+  val memoryTransactions = RegInit(0.U(32.W))
+
+  // 总周期计数
+  totalCycles := totalCycles + 1.U
+
+  // 活跃周期计数
+  when(io.debug.systemBusy) {
+    activeCycles := activeCycles + 1.U
+  }
+
+  // 完成任务计数（通过队列响应检测）
+  val taskCompleteSignal = io.queue_resps.map(qr => qr.valid && qr.ready).reduce(_ || _)
+  when(taskCompleteSignal) {
+    completedTasks := completedTasks + 1.U
+  }
+
+  // 内存事务计数（通过内存接口检测）
+  val memoryTransactionSignal = io.memory.a.valid && io.memory.a.ready
+  when(memoryTransactionSignal) {
+    memoryTransactions := memoryTransactions + 1.U
+  }
+
+  // 连接性能计数器到debug接口
+  io.debug.performanceCounters.totalCycles := totalCycles
+  io.debug.performanceCounters.activeCycles := activeCycles
+  io.debug.performanceCounters.completedTasks := completedTasks
+  io.debug.performanceCounters.memoryTransactions := memoryTransactions
 }
 
 /** Memory Arbiter

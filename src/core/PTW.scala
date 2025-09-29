@@ -16,6 +16,7 @@ object PTWParameter {
 case class PTWParameter(
   useAsyncReset:         Boolean,
   xLen:                  Int,
+  memDataWidth:          Int,
   asidBits:              Int,
   pgLevels:              Int,
   usingAtomics:          Boolean,
@@ -51,7 +52,7 @@ case class PTWParameter(
 
   def minPgLevels: Int = {
     val res = xLen match {
-      case 32 => 2
+      case 32 => 3
       case 64 => 3
     }
     require(pgLevels >= res)
@@ -80,8 +81,8 @@ class PTWInterface(parameter: PTWParameter) extends Bundle {
   }
 
   /** Memory interface for page table walks through cache */
-  val mem = Decoupled(new PTWMemoryReq(parameter.paddrBits, parameter.xLen))
-  val memResp = Flipped(Decoupled(new PTWMemoryResp(parameter.paddrBits, parameter.xLen)))
+  val mem = Decoupled(new PTWMemoryReq(parameter.paddrBits, parameter.memDataWidth))
+  val memResp = Flipped(Decoupled(new PTWMemoryResp(parameter.paddrBits, parameter.memDataWidth)))
 }
 
 @instantiable

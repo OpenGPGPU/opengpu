@@ -499,8 +499,9 @@ class PTE extends Bundle {
 }
 
 object PTBR {
-  def additionalPgLevels(ptbr: PTBR, pgLevels: Int, minPgLevels: Int) =
+  def additionalPgLevels(ptbr: PTBR, pgLevels: Int, minPgLevels: Int) = {
     ptbr.mode(log2Ceil(pgLevels - minPgLevels + 1) - 1, 0)
+  }
   def modeBits(xLen: Int) = xLen match {
     case 32 => 1
     case 64 => 4

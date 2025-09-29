@@ -12,16 +12,8 @@ import ogpu.dispatcher._
   * 顶层系统模块，提供完整的OGPU系统接口 包含时钟域、复位管理、调试接口等
   */
 @instantiable
-class OGPUSystemTop(val parameter: OGPUSystemParameter)
-    extends Module
-    with SerializableModule[OGPUSystemParameter]
-    with Public {
-
+class OGPUSystemTop(val parameter: OGPUSystemParameter) extends Module with SerializableModule[OGPUSystemParameter] {
   val io = IO(new Bundle {
-    // 时钟和复位
-    val clock = Input(Clock())
-    val reset = Input(Bool())
-
     // 队列接口（从主机）
     val queues = Vec(parameter.numQueues, Flipped(DecoupledIO(new QueueBundle)))
     val queue_resps = Vec(parameter.numQueues, DecoupledIO(new QueueRespBundle))
@@ -41,8 +33,8 @@ class OGPUSystemTop(val parameter: OGPUSystemParameter)
     // 调试和监控接口
     val debug = Output(new Bundle {
       val systemBusy = Bool()
-      val activeComputeUnits = UInt(parameter.numComputeUnits.W)
-      val activeWorkGroups = UInt(parameter.numWorkGroups.W)
+      val activeComputeUnits = Vec(parameter.numComputeUnits, Bool())
+      val activeWorkGroups = Vec(parameter.numWorkGroups, Bool())
       val queueUtilization = Vec(parameter.numQueues, Bool())
       val systemStatus = UInt(8.W)
       val performanceCounters = new Bundle {
@@ -72,14 +64,14 @@ class OGPUSystemTop(val parameter: OGPUSystemParameter)
   // ===== 复位管理 =====
 
   // 复位同步器
-  val resetSync = withClock(io.clock) {
+  val resetSync = withClock(clock) {
     val resetReg = RegInit(true.B)
-    resetReg := io.reset
+    resetReg := reset
     resetReg
   }
 
   // 软复位支持
-  val softReset = withClock(io.clock) {
+  val softReset = withClock(clock) {
     val softResetReg = RegInit(false.B)
     val softResetReq = Wire(Bool())
     softResetReq := false.B // 可以通过调试接口触发
@@ -97,11 +89,15 @@ class OGPUSystemTop(val parameter: OGPUSystemParameter)
 
   // ===== 核心系统实例化 =====
 
-  val ogpuSystem = withClockAndReset(io.clock, systemReset) {
+  val ogpuSystem = withClockAndReset(clock, systemReset) {
     Module(new OGPUSystem(parameter))
   }
 
   // ===== 接口连接 =====
+
+  // 连接时钟和复位
+  ogpuSystem.io.clock := clock
+  ogpuSystem.io.reset := systemReset
 
   // 队列接口
   for (i <- 0 until parameter.numQueues) {
@@ -117,7 +113,7 @@ class OGPUSystemTop(val parameter: OGPUSystemParameter)
 
   // ===== 性能计数器 =====
 
-  val performanceCounters = withClock(io.clock) {
+  val performanceCounters = withClock(clock) {
     val totalCycles = RegInit(0.U(64.W))
     val activeCycles = RegInit(0.U(64.W))
     val completedTasks = RegInit(0.U(32.W))
@@ -168,7 +164,7 @@ class OGPUSystemTop(val parameter: OGPUSystemParameter)
 
   // ===== 系统状态 =====
 
-  val systemStatus = withClock(io.clock) {
+  val systemStatus = withClock(clock) {
     val status = RegInit(0.U(8.W))
 
     // 状态编码：
@@ -195,7 +191,7 @@ class OGPUSystemTop(val parameter: OGPUSystemParameter)
 
   // ===== 中断生成 =====
 
-  val interrupts = withClock(io.clock) {
+  val interrupts = withClock(clock) {
     // 任务完成中断
     val taskCompleteInt = io.queue_resps.map(qr => qr.valid && qr.ready).reduce(_ || _)
 
@@ -221,7 +217,7 @@ class OGPUSystemTop(val parameter: OGPUSystemParameter)
   // ===== 调试支持 =====
 
   // 调试端口（可选）
-  val debugPort = withClock(io.clock) {
+  val debugPort = withClock(clock) {
     val debugData = RegInit(0.U(32.W))
     val debugValid = RegInit(false.B)
 
@@ -237,7 +233,7 @@ class OGPUSystemTop(val parameter: OGPUSystemParameter)
   // ===== 电源管理 =====
 
   // 时钟门控支持（可选）
-  val clockGating = withClock(io.clock) {
+  val clockGating = withClock(clock) {
     val clockEnable = RegInit(true.B)
 
     // 当系统空闲时可以关闭时钟以节省功耗
@@ -254,24 +250,24 @@ class OGPUSystemTop(val parameter: OGPUSystemParameter)
 
   // 系统级断言
   assert(
-    !(io.debug.systemBusy && !io.clock.asUInt.orR),
+    !(io.debug.systemBusy && !clock.asUInt.orR),
     "System should not be busy when clock is not running"
   )
 
   assert(
-    !(io.debug.activeComputeUnits > parameter.numComputeUnits.U),
+    !(PopCount(io.debug.activeComputeUnits) > parameter.numComputeUnits.U),
     "Active compute units should not exceed maximum"
   )
 
   assert(
-    !(io.debug.activeWorkGroups > parameter.numWorkGroups.U),
+    !(PopCount(io.debug.activeWorkGroups) > parameter.numWorkGroups.U),
     "Active work groups should not exceed maximum"
   )
 
   // ===== 初始化 =====
 
   // 系统初始化完成信号
-  val initComplete = withClock(io.clock) {
+  val initComplete = withClock(clock) {
     val initReg = RegInit(false.B)
     when(!systemReset) {
       initReg := true.B

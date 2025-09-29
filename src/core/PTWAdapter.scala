@@ -8,8 +8,8 @@ class PTWAdapterInterface(parameter: OGPUParameter) extends Bundle {
   // GPUCache-side simple PTW IO (Adapter is the sink of req and source of resp)
   val gpu = Flipped(new GPUTLBPTWIO(parameter.vaddrBitsExtended - 12, 40))
   // Memory sideband for PTW walk through cache
-  val mem = Decoupled(new PTWMemoryReq(40, parameter.xLen))
-  val memResp = Flipped(Decoupled(new PTWMemoryResp(40, parameter.xLen)))
+  val mem = Decoupled(new PTWMemoryReq(40, parameter.memDataWidth))
+  val memResp = Flipped(Decoupled(new PTWMemoryResp(40, parameter.memDataWidth)))
 }
 
 @instantiable
@@ -20,6 +20,7 @@ class PTWAdapter(val parameter: OGPUParameter) extends Module {
   private val ptwParam = PTWParameter(
     useAsyncReset = parameter.useAsyncReset,
     xLen = parameter.xLen,
+    memDataWidth = parameter.memDataWidth,
     asidBits = 9,
     pgLevels = 4,
     usingAtomics = false,

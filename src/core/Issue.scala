@@ -118,7 +118,10 @@ class IssueStage(val parameter: OGPUParameter)
   val memInst = io.in.bits.instruction.instruction
   val memImmI = Cat(Fill(20, memInst(31)), memInst(31, 20))
   val memRs1Data = io.intRegFile.readData(0)
-  io.memIssue.bits.vaddr := (memRs1Data.asUInt + memImmI.asUInt)(parameter.vaddrBitsExtended - 1, 0)
+  // Calculate virtual address with proper bit width handling
+  // Extend to sufficient width to avoid index out of range errors
+  val addrSum = (memRs1Data.asUInt + memImmI.asUInt).pad(parameter.vaddrBitsExtended + 1)
+  io.memIssue.bits.vaddr := addrSum(parameter.vaddrBitsExtended - 1, 0)
   val memFunct3 = memInst(14, 12)
   val memIsStore = memInst(5)
   io.memIssue.bits.cmd := Mux(memIsStore, 1.U, 0.U)

@@ -60,7 +60,7 @@ case class TLBParameter(
 
   def minPgLevels: Int = {
     val res = xLen match {
-      case 32 => 2
+      case 32 => 3
       case 64 => 3
     }
     require(pgLevels >= res)
